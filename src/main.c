@@ -14,7 +14,7 @@
 //#include "camera_pin.h"
 
 
-#include "esp_camera.h"
+#include <esp_camera.h>
 #include "esp_http_server.h"
 #include "esp_timer.h"
 #include <esp_wifi.h>
@@ -23,7 +23,8 @@
 #include <esp_system.h>
 #include <nvs_flash.h>
 #include <sys/param.h>
-
+#include <u8g2.h>
+#include "u8g2_esp32_hal.h"
 
 
 static const char *TAG = "example:take_picture";
@@ -243,6 +244,7 @@ static void initialise_wifi(void *arg)
   ESP_ERROR_CHECK(esp_wifi_start());
 }
 
+//U8G2_SSD1309_128X64_NONAME2_2_HW_I2C u8g2(U8G2_R0, /*reset*/ U8X8_PIN_NONE, /* clock */ 12, /* data */ 13);
 
 // Main
 void app_main(void)
@@ -284,6 +286,93 @@ void app_main(void)
     init_camera();
     initialise_wifi(&server);
 
+
+
+    u8g2_esp32_hal_t u8g2_esp32_hal = U8G2_ESP32_HAL_DEFAULT;
+	u8g2_esp32_hal.sda   = 13; //PIN_SDA;
+	u8g2_esp32_hal.scl  = 12; //PIN_SCL;
+	u8g2_esp32_hal_init(u8g2_esp32_hal);
+
+
+	u8g2_t u8g2; // a structure which will contain all the data for one display
+    u8g2_Setup_ssd1309_i2c_128x64_noname2_2(
+//	u8g2_Setup_ssd1306_i2c_128x32_univision_f(
+		&u8g2,
+		U8G2_R0,
+		//u8x8_byte_sw_i2c,
+		u8g2_esp32_i2c_byte_cb,
+		u8g2_esp32_gpio_and_delay_cb);  // init u8g2 structure
+	u8x8_SetI2CAddress(&u8g2.u8x8,0x78);
+
+	ESP_LOGI(TAG, "u8g2_InitDisplay");
+	u8g2_InitDisplay(&u8g2); // send init sequence to the display, display is in sleep mode after this,
+
+	ESP_LOGI(TAG, "u8g2_SetPowerSave");
+	u8g2_SetPowerSave(&u8g2, 0); // wake up display
+	ESP_LOGI(TAG, "u8g2_ClearBuffer");
+	u8g2_ClearBuffer(&u8g2);
+    u8g2_FirstPage(&u8g2);
+    do {
+        ESP_LOGI(TAG, "u8g2_DrawBox");
+        u8g2_DrawBox(&u8g2, 0, 26, 80,6);
+        u8g2_DrawFrame(&u8g2, 0,26,100,6);
+
+        ESP_LOGI(TAG, "u8g2_SetFont");
+        u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
+        ESP_LOGI(TAG, "u8g2_DrawStr");
+        u8g2_DrawStr(&u8g2, 2,17,"Hi nkolban!");
+    } while (u8g2_NextPage(&u8g2));
+//	ESP_LOGI(TAG, "u8g2_SendBuffer");
+//	u8g2_SendBuffer(&u8g2);
+
+	ESP_LOGI(TAG, "All done!");
+    printf("Free heap size: %d\n", (int) xPortGetFreeHeapSize());
+
+/*
+
+    u8g2_t u8g2;
+    uint8_t *buf;
+    u8g2_Setup_ssd1309_i2c_128x64_noname2_2(&u8g2,U8G2_R0,  u8x8_byte_sw_i2c, u8g2_esp32_gpio_and_delay_cb );
+    // / *reset* / U8X8_PIN_NONE, / * clock * / 12, / * data * / 13);
+
+    u8g2_Setup_ssd1309_i2c_128x64_noname2_2(&u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_gpio_and_delay_lpc11u3x);  // init u8g2 structure
+    buf = (uint8_t *)malloc(u8g2_GetBufferSize(&u8g2)); // dynamically allocate a buffer of the required size
+    u8g2_SetBufferPtr(&u8g2, buf); // set the internal page buffer pointer to the newly allocated page buffer
+    u8g2_InitDisplay(&u8g2); // send init sequence to the display, display is in sleep mode after this,
+    u8g2_SetPowerSave(&u8g2, 0); // wake up display
+
+    u8g2_InitDisplay(&u8g2);
+    u8g2_SetPowerSave(&u8g2, 0);
+
+
+    u8g2.begin();
+
+     u8g2.firstPage();
+    do
+    {
+      u8g2.setFont(u8g2_font_ncenB10_tr);
+      u8g2.drawStr(0, 14, "Hello World!");
+/ *
+      u8g2.setCursor(0, 26);
+      u8g2.printf("%c%c%c%c%c%c%c%c.",
+                  !mcp.digitalRead(0) ? 'J' : '0',  // JOYSTICK 
+                  !mcp.digitalRead(1) ? '2' : '0', 
+                  !mcp.digitalRead(2) ? '3' : '0',
+                  !mcp.digitalRead(3) ? 'N' : '0',  // NEXT
+                  !mcp.digitalRead(4) ? 'B' : '0',  // BEFORE
+                  !mcp.digitalRead(5) ? 'I' : '0',  // INC
+                  !mcp.digitalRead(6) ? 'D' : '0',  // DEC 
+                  !mcp.digitalRead(7) ? 'S' : '0'); // SEL
+      u8g2.setCursor(0, 38);
+      u8g2.printf("%d %d",
+                  ads.readADC_SingleEnded(0),
+                  ads.readADC_SingleEnded(1));
+
+      u8g2.setCursor(0, 50);
+      // u8g2.printf("%ld",mcp.readGPIOAB());
+* /
+    } while (u8g2.nextPage());
+*/
 /*
     for (int i = 10; i >= 0; i--) {
         printf("Restarting in %d seconds...\n", i);
