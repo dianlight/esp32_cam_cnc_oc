@@ -11,9 +11,6 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 
-//#include "camera_pin.h"
-
-
 #include <esp_camera.h>
 #include "esp_http_server.h"
 #include "esp_timer.h"
@@ -24,7 +21,7 @@
 #include <nvs_flash.h>
 #include <sys/param.h>
 #include <u8g2.h>
-#include "u8g2_esp32_hal.h"
+#include <u8g2_esp32_hal.h>
 
 
 static const char *TAG = "example:take_picture";
