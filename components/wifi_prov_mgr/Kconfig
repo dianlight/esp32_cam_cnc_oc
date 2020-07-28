@@ -1,0 +1,44 @@
+menu "Wi-Fi Auto Configurator"
+
+config MDNS_HOSTNAME
+    string "mDNS Hostname"
+    default ESP32DEV
+    help
+        mDNS Hostname for example to use
+
+config MDNS_ADD_MAC_TO_HOSTNAME
+    bool "Add mac suffix to hostname"
+    default n
+    help
+        If enabled, a portion of MAC address is added to the hostname, this is used
+        for evaluation of tests in CI
+
+
+choice PROV_TRANSPORT
+    bool "Provisioning Transport"
+    default PROV_TRANSPORT_SOFTAP
+    help
+        Wi-Fi provisioning component offers both, SoftAP and BLE transports. Choose any one.
+
+    config PROV_TRANSPORT_BLE
+        bool "BLE"
+        select BT_ENABLED
+        depends on IDF_TARGET_ESP32
+    config PROV_TRANSPORT_SOFTAP
+        bool "Soft AP"
+endchoice
+
+config PROV_TRANSPORT
+    int
+    default 1 if PROV_TRANSPORT_BLE
+    default 2 if PROV_TRANSPORT_SOFTAP
+
+config PROV_WIFI_AP
+    string "Wifi SoftAP Name"
+    default ESP_CONFIG
+    depends on PROV_TRANSPORT_SOFTAP
+    help
+        SoftAP name
+
+
+endmenu
