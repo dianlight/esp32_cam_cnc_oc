@@ -1,8 +1,23 @@
-/* Hello World Example
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
+/* Esp32_Cam_CNC_Offline_Controller
+ * HW TODO:
+ *  [x] Display
+ *  [x] Wifi
+ *  [ ] Bluetooth serial
+ *  [x] Joysitck
+ *  [x] Buttons
+ *  [x] Cam
+ *  [x] Himem (8Gb)
+ * SW TODO:
+ *  [x] Camera streaming 
+ *  [ ] Wifi configuration
+ *  [ ] Display on own task (autorefresh)
+ *  [ ] Wifi Socket serial
+ *  [ ] Icon Menu
+ *  [ ] OTA (if flash space / himem?)
+ * GRBL TODO:
+ *  [ ] Display status
+ *  [ ] Manual command
+ *  [ ] Probe command
 */
 
 #define SDA_GPIO 13
@@ -15,6 +30,7 @@
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_spi_flash.h"
+#include "esp32/himem.h"
 
 #include <esp_camera.h>
 #include "esp_http_server.h"
@@ -498,6 +514,11 @@ void app_main(void)
     printf("Free heap: %d\n", esp_get_free_heap_size());
 
     printf("Free heap size: %d\n", (int) xPortGetFreeHeapSize());
+
+    size_t memcnt=esp_himem_get_phys_size();
+    size_t memfree=esp_himem_get_free_size();
+    printf("Himem has %dKiB of memory, %dKiB of which is free. Testing the free memory...\n", (int)memcnt/1024, (int)memfree/1024);
+
 //    heap_caps_print_heap_info(MALLOC_CAP_DEFAULT);
 
  
@@ -550,6 +571,8 @@ void app_main(void)
 
     ssdtest();
     printf("Free heap size: %d\n", (int) xPortGetFreeHeapSize());
+
+
 
     ESP_ERROR_CHECK(i2cdev_init());
    // xTaskCreate(buttonsTask, "buttonsTask", configMINIMAL_STACK_SIZE * 6, NULL, 5, NULL);
