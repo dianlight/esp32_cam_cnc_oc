@@ -295,10 +295,18 @@ void buttonsTask(void *pvParameters)
     memset(&device, 0, sizeof(i2c_dev_t));
 
     ESP_ERROR_CHECK(ads111x_init_desc(&device, ADS111X_ADDR_GND, 0, SDA_GPIO, SCL_GPIO));
-    ESP_ERROR_CHECK(ads111x_set_mode(&device, ADS111X_MODE_CONTUNOUS));    
-    ESP_ERROR_CHECK(ads111x_set_comp_mode(&device, ADS111X_COMP_MODE_WINDOW));    
-    ESP_ERROR_CHECK(ads111x_set_data_rate(&device, ADS111X_DATA_RATE_8)); // 32 samples per second
+/*    
+    ads111x_set_comp_queue(&device,ADS111X_COMP_QUEUE_DISABLED);
+    ads111x_set_comp_latch(&device,ADS111X_COMP_LATCH_DISABLED);
+    ads111x_set_comp_polarity(&device,ADS111X_COMP_POLARITY_LOW);
+    ads111x_set_comp_mode(&device, ADS111X_COMP_MODE_NORMAL);
+    ads111x_set_data_rate(&device, ADS111X_DATA_RATE_128);
+    ads111x_set_mode(&device, ADS111X_MODE_SINGLE_SHOT);
+//    ESP_ERROR_CHECK(ads111x_set_mode(&device, ADS111X_MODE_CONTUNOUS));    
+//    ESP_ERROR_CHECK(ads111x_set_comp_mode(&device, ADS111X_COMP_MODE_WINDOW));    
+//    ESP_ERROR_CHECK(ads111x_set_data_rate(&device, ADS111X_DATA_RATE_8)); // 32 samples per second
     ESP_ERROR_CHECK(ads111x_set_gain(&device, ADS111X_GAIN_4V096));
+    */
 
 
 
@@ -326,7 +334,15 @@ void buttonsTask(void *pvParameters)
                   !mcp23x17_get_level(&dev,6,true) ? 'D' : '0',  // DEC 
                   !mcp23x17_get_level(&dev,7,true) ? 'S' : '0'); // SEL
         */       
-        ESP_ERROR_CHECK(ads111x_set_input_mux(&device, ADS111X_MUX_0_GND));    // positive = AIN0, negative = GND 
+    ESP_ERROR_CHECK(ads111x_set_input_mux(&device, ADS111X_MUX_0_GND));    // positive = AIN0, negative = GND 
+    ads111x_set_comp_queue(&device,ADS111X_COMP_QUEUE_DISABLED);
+    ads111x_set_comp_latch(&device,ADS111X_COMP_LATCH_DISABLED);
+    ads111x_set_comp_polarity(&device,ADS111X_COMP_POLARITY_LOW);
+    ads111x_set_comp_mode(&device, ADS111X_COMP_MODE_NORMAL);
+    ads111x_set_data_rate(&device, ADS111X_DATA_RATE_128);
+    ads111x_set_mode(&device, ADS111X_MODE_SINGLE_SHOT);
+    ESP_ERROR_CHECK(ads111x_set_gain(&device, ADS111X_GAIN_4V096));
+
         ESP_ERROR_CHECK(ads111x_start_conversion(&device));   
         bool busy = true;
         do
@@ -348,7 +364,14 @@ void buttonsTask(void *pvParameters)
         vTaskDelay(10 / portTICK_PERIOD_MS);    
 
         busy = true;
-        ESP_ERROR_CHECK(ads111x_set_input_mux(&device, ADS111X_MUX_2_GND));    // positive = AIN0, negative = GND 
+        ESP_ERROR_CHECK(ads111x_set_input_mux(&device, ADS111X_MUX_1_GND));    // positive = AIN0, negative = GND 
+        ads111x_set_comp_queue(&device,ADS111X_COMP_QUEUE_DISABLED);
+        ads111x_set_comp_latch(&device,ADS111X_COMP_LATCH_DISABLED);
+        ads111x_set_comp_polarity(&device,ADS111X_COMP_POLARITY_LOW);
+        ads111x_set_comp_mode(&device, ADS111X_COMP_MODE_NORMAL);
+        ads111x_set_data_rate(&device, ADS111X_DATA_RATE_128);
+        ads111x_set_mode(&device, ADS111X_MODE_SINGLE_SHOT);
+        ESP_ERROR_CHECK(ads111x_set_gain(&device, ADS111X_GAIN_4V096));        
         ESP_ERROR_CHECK(ads111x_start_conversion(&device));  
         do
         {
