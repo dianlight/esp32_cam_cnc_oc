@@ -1,3 +1,5 @@
 cmake_minimum_required(VERSION 3.16.0)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+list(APPEND EXTRA_COMPONENT_DIRS esp-idf-lib/components)
+#list(APPEND EXCLUDE_COMPONENTS max7219 mcp23x17)
 project(Esp32_Cam_CNC_OC)
