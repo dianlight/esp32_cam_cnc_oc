@@ -14,6 +14,7 @@
  *  [ ] Wifi Socket serial
  *  [ ] Icon Menu
  *  [ ] OTA (if flash space / himem?)
+ *  [x] mDNS
  * GRBL TODO:
  *  [ ] Display status
  *  [ ] Manual command
@@ -47,6 +48,7 @@
 #include <i2cdev.h>
 #include <mcp23x17.h>
 #include <ads111x.h>
+#include <mdns.h>
 
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
@@ -97,13 +99,6 @@ static camera_config_t camera_config = {
 // Camera
 static esp_err_t init_camera()
 {
-//    //power up the camera if PWDN pin is defined
-//    if(CAM_PIN_PWDN != -1){
-//        gpio_pad_select_gpio(CAM_PIN_PWDN);
-//        gpio_set_direction(CAM_PIN_PWDN,GPIO_MODE_OUTPUT);
-//        gpio_set_level(CAM_PIN_PWDN, 0);
-//    }
-
     //initialize the camera
     esp_err_t err = esp_camera_init(&camera_config);
     if (err != ESP_OK)
@@ -200,10 +195,10 @@ httpd_handle_t start_webserver(void)
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
   // Start the httpd server
-  ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
   if (httpd_start(&server, &config) == ESP_OK)
   {
     // Set URI handlers
+    ESP_ERROR_CHECK( mdns_service_add("WebCam", "_http", "_tcp", 80, NULL, 0) );
     ESP_LOGI(TAG, "Registering URI handlers");
     httpd_register_uri_handler(server, &uri_handler_jpg);
     return server;
@@ -221,14 +216,17 @@ void stop_webserver(httpd_handle_t server)
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                           int event_id, void* event_data)
-//static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
     httpd_handle_t *server = (httpd_handle_t *)arg;
 
     if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t *ip_data = (ip_event_got_ip_t *)event_data;
             /* Start the web server */
     if (*server == NULL)
     {
+        ESP_LOGI(TAG, "Starting server: '%s:80'",
+                ip4addr_ntoa(&ip_data->ip_info.ip));
+  
       *server = start_webserver();
     }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {

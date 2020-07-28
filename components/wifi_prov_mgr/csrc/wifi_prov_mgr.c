@@ -18,6 +18,7 @@
 #include <esp_wifi.h>
 #include <esp_event.h>
 #include <nvs_flash.h>
+#include <mdns.h>
 
 #include <wifi_provisioning/manager.h>
 #ifdef CONFIG_BT_ENABLED
@@ -27,9 +28,6 @@
 
 static const char *TAG = "wifi_prov_mgr";
 
-#ifndef PROJECT_NAME
-    #define PROJECT_NAME "ESP32"
-#endif // !PROJECT_NAME
 
 
 /* Signal Wi-Fi events on this event-group */
@@ -94,10 +92,58 @@ static void wifi_init_sta()
 static void get_device_service_name(char *service_name, size_t max)
 {
     uint8_t eth_mac[6];
-    const char *ssid_prefix = PROJECT_NAME;
+    const char *ssid_prefix = CONFIG_PROV_WIFI_AP;
     esp_wifi_get_mac(WIFI_IF_STA, eth_mac);
     snprintf(service_name, max, "%s%02X%02X%02X",
              ssid_prefix, eth_mac[3], eth_mac[4], eth_mac[5]);
+}
+
+/** Generate host name based on sdkconfig, optionally adding a portion of MAC address to it.
+ *  @return host name string allocated from the heap
+ */
+static char* generate_hostname()
+{
+#ifndef CONFIG_MDNS_ADD_MAC_TO_HOSTNAME
+    return strdup(CONFIG_MDNS_HOSTNAME);
+#else
+    uint8_t mac[6];
+    char   *hostname;
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    if (-1 == asprintf(&hostname, "%s-%02X%02X%02X", CONFIG_MDNS_HOSTNAME, mac[3], mac[4], mac[5])) {
+        abort();
+    }
+    return hostname;
+#endif
+}
+
+static void initialise_mdns(void)
+{
+    char* hostname = generate_hostname();
+    //initialize mDNS
+    ESP_ERROR_CHECK( mdns_init() );
+    //set mDNS hostname (required if you want to advertise services)
+    ESP_ERROR_CHECK( mdns_hostname_set(hostname) );
+    ESP_LOGI(TAG, "mdns hostname set to: [%s]", hostname);
+    //set default mDNS instance name
+    ESP_ERROR_CHECK( mdns_instance_name_set(hostname) );
+
+/*
+
+    //structure with TXT records
+    mdns_txt_item_t serviceTxtData[3] = {
+        {"board","esp32"},
+        {"u","user"},
+        {"p","password"}
+    };
+
+    //initialize service
+    ESP_ERROR_CHECK( mdns_service_add("ESP32-WebServer", "_http", "_tcp", 80, serviceTxtData, 3) );
+    //add another TXT item
+    ESP_ERROR_CHECK( mdns_service_txt_item_set("_http", "_tcp", "path", "/foobar") );
+    //change TXT item value
+    ESP_ERROR_CHECK( mdns_service_txt_item_set("_http", "_tcp", "u", "admin") );
+*/    
+    free(hostname);
 }
 
 void wifi_prov_mgr()
@@ -115,6 +161,8 @@ void wifi_prov_mgr()
 
     /* Initialize TCP/IP */
     tcpip_adapter_init();
+
+    initialise_mdns();
 
     /* Initialize the event loop */
    // ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -163,7 +211,7 @@ void wifi_prov_mgr()
          *     - Wi-Fi SSID when scheme is wifi_prov_scheme_softap
          *     - device name when scheme is wifi_prov_scheme_ble
          */
-        char service_name[12];
+        char service_name[18];
         get_device_service_name(service_name, sizeof(service_name));
 
         /* What is the security level that we want (0 or 1):

@@ -1,12 +1,5 @@
 menu "Example configuration"
 
-  menu "Wifi Configuration"
-    config WIFI_SSID
-      string "Wifi SSID"
-    config WIFI_PASSWORD
-      string "Wifi password"
-  endmenu
-
   menu "Camera configuration"
 
     config XCLK_FREQ
