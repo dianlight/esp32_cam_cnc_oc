@@ -9,7 +9,7 @@
  *  [x] Himem (8Gb)
  * SW TODO:
  *  [x] Camera streaming 
- *  [ ] Wifi configuration
+ *  [x] Wifi configuration (Softap provisioning)
  *  [ ] Display on own task (autorefresh)
  *  [ ] Wifi Socket serial
  *  [ ] Icon Menu
@@ -36,7 +36,8 @@
 #include "esp_http_server.h"
 #include "esp_timer.h"
 #include <esp_wifi.h>
-#include <esp_event_loop.h>
+//#include <esp_event_loop.h>
+#include <esp_event.h>
 #include <esp_log.h>
 #include <esp_system.h>
 #include <nvs_flash.h>
@@ -50,6 +51,12 @@
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
 #include "driver/sdmmc_host.h"
+
+#ifdef CONFIG_BT_ENABLED
+    #include "bluetooth.h"
+#endif
+
+#include "wifi_prov_mgr.h"
 
 #define MOUNT_POINT "/sdcard"
 
@@ -212,44 +219,31 @@ void stop_webserver(httpd_handle_t server)
   httpd_stop(server);
 }
 
-static esp_err_t event_handler(void *ctx, system_event_t *event)
+static void event_handler(void* arg, esp_event_base_t event_base,
+                          int event_id, void* event_data)
+//static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
-  httpd_handle_t *server = (httpd_handle_t *)ctx;
+    httpd_handle_t *server = (httpd_handle_t *)arg;
 
-  switch (event->event_id)
-  {
-  case SYSTEM_EVENT_STA_START:
-    ESP_LOGI(TAG, "SYSTEM_EVENT_STA_START");
-    ESP_ERROR_CHECK(esp_wifi_connect());
-    break;
-  case SYSTEM_EVENT_STA_GOT_IP:
-    ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP");
-    ESP_LOGI(TAG, "Got IP: '%s'",
-             ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
-
-    /* Start the web server */
+    if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+            /* Start the web server */
     if (*server == NULL)
     {
       *server = start_webserver();
     }
-    break;
-  case SYSTEM_EVENT_STA_DISCONNECTED:
-    ESP_LOGI(TAG, "SYSTEM_EVENT_STA_DISCONNECTED");
-    ESP_ERROR_CHECK(esp_wifi_connect());
-
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
+        esp_wifi_connect();
     /* Stop the web server */
     if (*server)
     {
       stop_webserver(*server);
       *server = NULL;
     }
-    break;
-  default:
-    break;
-  }
-  return ESP_OK;
+    }
 }
 
+/*
 static void initialise_wifi(void *arg)
 {
   tcpip_adapter_init();
@@ -270,7 +264,7 @@ static void initialise_wifi(void *arg)
   ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_start());
 }
-
+*/
 //U8G2_SSD1309_128X64_NONAME2_2_HW_I2C u8g2(U8G2_R0, /*reset*/ U8X8_PIN_NONE, /* clock */ 12, /* data */ 13);
 
 void buttonsTask(void *pvParameters)
@@ -525,7 +519,14 @@ void app_main(void)
     static httpd_handle_t server = NULL;
     ESP_ERROR_CHECK(nvs_flash_init());
     init_camera();
-    initialise_wifi(&server);
+
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, &server));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &event_handler, &server));
+//    ESP_ERROR_CHECK(esp_event_loop_init(event_handler,&server ));
+    wifi_prov_mgr();
+    //initialise_wifi(&server);
 
 
 
@@ -571,6 +572,11 @@ void app_main(void)
 
     ssdtest();
     printf("Free heap size: %d\n", (int) xPortGetFreeHeapSize());
+
+#ifdef CONFIG_BT_ENABLED
+    app_main_bluetooth();
+    printf("Free heap size: %d\n", (int) xPortGetFreeHeapSize());
+#endif
 
 
 
