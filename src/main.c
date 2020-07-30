@@ -23,10 +23,7 @@
  *  [ ] Manual command
  *  [ ] Probe command
 */
-
-#define SDA_GPIO 13
-#define SCL_GPIO 12
-
+#include "pinConfig.h"
 #include <stdio.h>
 #include <dirent.h>
 #include "sdkconfig.h"
@@ -47,12 +44,14 @@
 #include <esp_system.h>
 #include <nvs_flash.h>
 #include <sys/param.h>
-#include <u8g2.h>
-#include <u8g2_esp32_hal.h>
+//#include <u8g2.h>
+//#include <u8g2_esp32_hal.h>
 #include <i2cdev.h>
 #include <mcp23x17.h>
 #include <ads111x.h>
 #include <mdns.h>
+
+#include "infoDisplay.h"
 
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
@@ -64,11 +63,13 @@
 
 #include "wifi_prov_mgr.h"
 
-#include "ota_server.h"
+//#include "ota_server.h"
+#include "idf_arduino_ota.h"
+
 
 #define MOUNT_POINT "/sdcard"
 
-static const char *TAG = "example:take_picture";
+static const char *TAG = "mainapp";
 
 static camera_config_t camera_config = {
     .pin_pwdn = CONFIG_PWDN,
@@ -232,6 +233,42 @@ void stop_webserver(httpd_handle_t server)
     httpd_stop(server);
 }
 
+static void ota_event_handler(void* handler_args, esp_event_base_t event_base, int32_t event_id, void* event_data)
+{
+    ota_file_info_t *ota_file_info = (ota_file_info_t*)handler_args;
+    static uint8_t operc = 0;
+    uint8_t perc;
+    switch (event_id)
+    {
+    case OTA_EVENT_STARTED:
+        ESP_LOGI(TAG,"OTA Started %p",ota_file_info);
+        operc = 0;
+        otaDisplay(0);
+        break;
+    case OTA_EVENT_END:
+        ESP_LOGI(TAG,"OTA Stopped");
+        break;
+    case OTA_EVENT_PROGRESS:
+        ESP_LOGD(TAG,"OTA Running |%p|",ota_file_info);
+    /*
+        ESP_LOGD(TAG,"OTA Running %d/%d",ota_file_info->flashed,ota_file_info->size);
+        perc = ota_file_info->flashed * 100 / ota_file_info->size;
+        ESP_LOGD(TAG,"OTA Running %d %d/%d",perc,ota_file_info->flashed,ota_file_info->size);
+        if(operc != perc){
+            operc = perc;
+            otaDisplay(perc);
+        }
+    */    
+        break;
+    case OTA_EVENT_ERROR:
+        ESP_LOGE(TAG,"OTA Error");
+        break;
+    default:
+        break;
+    }
+}
+
+
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int event_id, void *event_data)
 {
@@ -242,7 +279,12 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         ip_event_got_ip_t *ip_data = (ip_event_got_ip_t *)event_data;
 
 //        ota_server_stop();
-        ota_server_start();
+//        ota_server_start();
+        start_arduino_ota();
+        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_STARTED, &ota_event_handler, NULL));
+        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_END, &ota_event_handler, NULL));
+        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_PROGRESS, &ota_event_handler, NULL));
+        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_ERROR, &ota_event_handler, NULL));
 
         /* Start the web server */
         if (*server == NULL)
@@ -267,29 +309,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-/*
-static void initialise_wifi(void *arg)
-{
-  tcpip_adapter_init();
-  ESP_ERROR_CHECK(esp_event_loop_init(event_handler, arg));
-  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-  ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-
-  wifi_config_t wifi_config = {
-      .sta = {
-          .ssid = CONFIG_WIFI_SSID,
-          .password = CONFIG_WIFI_PASSWORD,
-      },
-  };
-  
-  ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-  ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-  ESP_ERROR_CHECK(esp_wifi_start());
-}
-*/
-//U8G2_SSD1309_128X64_NONAME2_2_HW_I2C u8g2(U8G2_R0, /*reset*/ U8X8_PIN_NONE, /* clock */ 12, /* data */ 13);
 
 void buttonsTask(void *pvParameters)
 {
@@ -498,15 +517,18 @@ void app_main(void)
     esp_log_level_set("spiram", ESP_LOG_WARN);
     esp_log_level_set("efuse", ESP_LOG_WARN);
     esp_log_level_set("wifi", ESP_LOG_WARN);                 
-    esp_log_level_set("wifi:wifi", ESP_LOG_WARN);                 
     esp_log_level_set("wpa", ESP_LOG_WARN);                   
     esp_log_level_set("httpd_parse", ESP_LOG_INFO);          
     esp_log_level_set("camera", ESP_LOG_INFO);               
-    esp_log_level_set("example:take_picture", ESP_LOG_DEBUG); 
+    esp_log_level_set("mainapp", ESP_LOG_DEBUG); 
     esp_log_level_set("ota_server",ESP_LOG_DEBUG);
     esp_log_level_set("wifi_prov_mgr",ESP_LOG_INFO);
 
-    printf("Hello world!\n");
+    ESP_LOGI(TAG,"Application Start");
+    ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    ESP_ERROR_CHECK(initDisplay());
+//    bootDisplay();
 
     /* Print chip information */
     esp_chip_info_t chip_info;
@@ -519,61 +541,25 @@ void app_main(void)
 
     printf("silicon revision %d, ", chip_info.revision);
 
-    printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
+    printf("%dMB %s flash\n", (spi_flash_get_chip_size()+esp_himem_get_phys_size()) / (1024 * 1024),
            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     printf("Free heap: %d\n", esp_get_free_heap_size());
 
     printf("Free heap size: %d\n", (int)xPortGetFreeHeapSize());
 
-    size_t memcnt = esp_himem_get_phys_size();
-    size_t memfree = esp_himem_get_free_size();
-    printf("Himem has %dKiB of memory, %dKiB of which is free. Testing the free memory...\n", (int)memcnt / 1024, (int)memfree / 1024);
+    printf("Free himem size: %d\n", (int)esp_himem_get_free_size());
 
-    //    heap_caps_print_heap_info(MALLOC_CAP_DEFAULT);
 
     static httpd_handle_t server = NULL;
-    ESP_ERROR_CHECK(nvs_flash_init());
+   
     init_camera();
-
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, &server));
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &event_handler, &server));
     //    ESP_ERROR_CHECK(esp_event_loop_init(event_handler,&server ));
     wifi_prov_mgr();
     //initialise_wifi(&server);
-
-    u8g2_esp32_hal_t u8g2_esp32_hal = U8G2_ESP32_HAL_DEFAULT;
-    u8g2_esp32_hal.sda = SDA_GPIO;
-    u8g2_esp32_hal.scl = SCL_GPIO;
-    u8g2_esp32_hal_init(u8g2_esp32_hal);
-
-    u8g2_t u8g2; // a structure which will contain all the data for one display
-    u8g2_Setup_ssd1309_i2c_128x64_noname2_2(
-        //	u8g2_Setup_ssd1306_i2c_128x32_univision_f(
-        &u8g2,
-        U8G2_R0,
-        //u8x8_byte_sw_i2c,
-        u8g2_esp32_i2c_byte_cb,
-        u8g2_esp32_gpio_and_delay_cb); // init u8g2 structure
-    u8x8_SetI2CAddress(&u8g2.u8x8, 0x78);
-
-    u8g2_InitDisplay(&u8g2); // send init sequence to the display, display is in sleep mode after this,
-
-    u8g2_SetPowerSave(&u8g2, 0); // wake up display
-    u8g2_ClearBuffer(&u8g2);
-    u8g2_FirstPage(&u8g2);
-    do
-    {
-        u8g2_DrawBox(&u8g2, 0, 26, 80, 6);
-        u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
-
-        u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
-        u8g2_DrawStr(&u8g2, 2, 17, "GBRL v0.007");
-    } while (u8g2_NextPage(&u8g2));
-    //	ESP_LOGI(TAG, "u8g2_SendBuffer");
-    //	u8g2_SendBuffer(&u8g2);
 
     printf("Free heap size: %d\n", (int)xPortGetFreeHeapSize());
 
@@ -589,58 +575,6 @@ void app_main(void)
     // xTaskCreate(buttonsTask, "buttonsTask", configMINIMAL_STACK_SIZE * 6, NULL, 5, NULL);
  //   xTaskCreatePinnedToCore(buttonsTask, "buttonsTask", configMINIMAL_STACK_SIZE * 8, NULL, 1, NULL, APP_CPU_NUM);
 
-    /*
-
-    u8g2_t u8g2;
-    uint8_t *buf;
-    u8g2_Setup_ssd1309_i2c_128x64_noname2_2(&u8g2,U8G2_R0,  u8x8_byte_sw_i2c, u8g2_esp32_gpio_and_delay_cb );
-    // / *reset* / U8X8_PIN_NONE, / * clock * / 12, / * data * / 13);
-
-    u8g2_Setup_ssd1309_i2c_128x64_noname2_2(&u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_gpio_and_delay_lpc11u3x);  // init u8g2 structure
-    buf = (uint8_t *)malloc(u8g2_GetBufferSize(&u8g2)); // dynamically allocate a buffer of the required size
-    u8g2_SetBufferPtr(&u8g2, buf); // set the internal page buffer pointer to the newly allocated page buffer
-    u8g2_InitDisplay(&u8g2); // send init sequence to the display, display is in sleep mode after this,
-    u8g2_SetPowerSave(&u8g2, 0); // wake up display
-
-    u8g2_InitDisplay(&u8g2);
-    u8g2_SetPowerSave(&u8g2, 0);
-
-
-    u8g2.begin();
-
-     u8g2.firstPage();
-    do
-    {
-      u8g2.setFont(u8g2_font_ncenB10_tr);
-      u8g2.drawStr(0, 14, "Hello World!");
-/ *
-      u8g2.setCursor(0, 26);
-      u8g2.printf("%c%c%c%c%c%c%c%c.",
-                  !mcp.digitalRead(0) ? 'J' : '0',  // JOYSTICK 
-                  !mcp.digitalRead(1) ? '2' : '0', 
-                  !mcp.digitalRead(2) ? '3' : '0',
-                  !mcp.digitalRead(3) ? 'N' : '0',  // NEXT
-                  !mcp.digitalRead(4) ? 'B' : '0',  // BEFORE
-                  !mcp.digitalRead(5) ? 'I' : '0',  // INC
-                  !mcp.digitalRead(6) ? 'D' : '0',  // DEC 
-                  !mcp.digitalRead(7) ? 'S' : '0'); // SEL
-      u8g2.setCursor(0, 38);
-      u8g2.printf("%d %d",
-                  ads.readADC_SingleEnded(0),
-                  ads.readADC_SingleEnded(1));
-
-      u8g2.setCursor(0, 50);
-      // u8g2.printf("%ld",mcp.readGPIOAB());
-* /
-    } while (u8g2.nextPage());
-*/
-    /*
-    for (int i = 10; i >= 0; i--) {
-        printf("Restarting in %d seconds...\n", i);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-    printf("Restarting now.\n");
-    fflush(stdout);
-    esp_restart();
-*/
+//    ESP_ERROR_CHECK(startInfoDisplay());
+    infoDisplay();
 }
