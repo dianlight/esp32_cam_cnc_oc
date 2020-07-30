@@ -16,9 +16,10 @@
  *  [x] OTA
  *    [ ] Use Himem for ota
  *    [x] Correct watchdog conflict
- *    [ ] Ota events!
+ *    [x] Ota events!
  *  [x] mDNS
  * GRBL TODO:
+ *  [ ] Log out of serial! // GRBL compatible prefix?
  *  [ ] Display status
  *  [ ] Manual command
  *  [ ] Probe command
@@ -102,7 +103,7 @@ void stop_webserver(httpd_handle_t server)
 
 static void ota_event_handler(void* handler_args, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    ota_file_info_t *ota_file_info = (ota_file_info_t*)handler_args;
+    ota_file_info_t *ota_file_info = (ota_file_info_t*)event_data;
     static uint8_t operc = 0;
     uint8_t perc;
     switch (event_id)
@@ -116,16 +117,12 @@ static void ota_event_handler(void* handler_args, esp_event_base_t event_base, i
         ESP_LOGI(TAG,"OTA Stopped");
         break;
     case OTA_EVENT_PROGRESS:
-        ESP_LOGD(TAG,"OTA Running |%p|",ota_file_info);
-    /*
-        ESP_LOGD(TAG,"OTA Running %d/%d",ota_file_info->flashed,ota_file_info->size);
         perc = ota_file_info->flashed * 100 / ota_file_info->size;
         ESP_LOGD(TAG,"OTA Running %d %d/%d",perc,ota_file_info->flashed,ota_file_info->size);
         if(operc != perc){
             operc = perc;
             otaDisplay(perc);
         }
-    */    
         break;
     case OTA_EVENT_ERROR:
         ESP_LOGE(TAG,"OTA Error");

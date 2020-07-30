@@ -313,7 +313,7 @@ static void ota_task(void *pvParameter)
                 return;
             }
 
-            vTaskDelay(50 / portTICK_PERIOD_MS);
+            vTaskDelay(5 / portTICK_PERIOD_MS);
         }
 
         if (sock != -1)
