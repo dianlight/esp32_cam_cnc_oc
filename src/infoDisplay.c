@@ -103,7 +103,7 @@ void _bootPage(info_display_handle_t *data)
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
-    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.024");
+    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.025");
 
 }
 
@@ -156,7 +156,7 @@ void _otaPage(info_display_handle_t *data)
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
-    u8g2_DrawStr(&u8g2, 2, 17, "OTAupdate");
+    u8g2_DrawStr(&u8g2, 2, 17, "OTA update");
 }
 
 void info_display_task(void *params)
