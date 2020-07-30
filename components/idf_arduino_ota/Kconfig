@@ -1,0 +1,21 @@
+menu "Arduino OTA Configuration"
+
+    config ARDUINO_OTA_TRIGGER_PORT
+        int "Port where receive OTA invitation"
+        default 8032
+        help
+            Port where receive OTA invitation
+
+    config ARDUINO_OTA_SKIP_VERSION_CHECK
+        bool "Skip firmware version check"
+        default n
+        help
+            This allows you to skip the firmware version check.
+
+    config ARDUINO_OTA_RECV_TIMEOUT
+        int "OTA Receive Timeout"
+        default 5000
+        help
+            Maximum time for reception
+
+endmenu
