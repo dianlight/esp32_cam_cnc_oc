@@ -6,6 +6,7 @@
 #include <u8g2_esp32_hal.h>
 
 #include "infoDisplay.h"
+#include "hid.h"
 
 static const char *TAG = "display";
 
@@ -43,6 +44,41 @@ static info_display_handle_t info_display_handle;
 
 void info_display_task(void *params);
 
+static uint8_t menupos = 0; 
+
+static void hid_event_handler(void* handler_args, esp_event_base_t event_base, int32_t event_id, void* event_data)
+{
+    hid_status_t *hid_status = (hid_status_t*)event_data;
+    switch (event_id)
+    {
+    case HID_EVENT_BEFORE:
+        if(menupos > 0)menupos--;
+        else menupos = 7;
+        break;
+    case HID_EVENT_NEXT:
+        menupos=(menupos+1)%7;
+        break;
+    case HID_EVENT_INC:
+        ESP_LOGD(TAG,"INC pressed!");
+        break;
+    case HID_EVENT_DEC:
+        ESP_LOGD(TAG,"DEC pressed!");
+        break;
+    case HID_EVENT_SEL:
+        ESP_LOGD(TAG,"SEL pressed!");
+        break;
+    case HID_EVENT_JOY_BUTTON:
+        ESP_LOGD(TAG,"JOY pressed!");
+        break;
+    case HID_EVENT_JOY_MOVE:
+        ESP_LOGD(TAG,"JOY move!");
+        break;
+    default:
+        break;
+    }
+}
+
+
 esp_err_t initDisplay(void)
 {
     u8g2_esp32_hal_t u8g2_esp32_hal = U8G2_ESP32_HAL_DEFAULT;
@@ -76,6 +112,9 @@ esp_err_t initDisplay(void)
 
     info_display_handle.page = DISPLAY_BOOT_PAGE;
 
+    ESP_ERROR_CHECK(initHID());
+    ESP_ERROR_CHECK(esp_event_handler_register(HID_EVENT, ESP_EVENT_ANY_ID, &hid_event_handler, NULL));
+
     if (xTaskCreate(info_display_task, "infoDisplay", configMINIMAL_STACK_SIZE * 6, (void *)&info_display_handle, 1, &info_display_handle.task) == pdPASS)
     {
         ESP_LOGD(TAG, "Create InfoDisplay task");
@@ -103,13 +142,12 @@ void _bootPage(info_display_handle_t *data)
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
-    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.026");
+    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.027");
 
 }
 
 void _mainPage(info_display_handle_t *data)
 {
-    static uint8_t menupos = 0;
 
     // GRBL <Idle|MPos:0.000,0.000,0.000|FS:0.0,0>
     // Icon Bar 16x16
@@ -120,26 +158,30 @@ void _mainPage(info_display_handle_t *data)
             u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][0]);
     }
     // Separator Line
-    u8g2_DrawLine(&u8g2, 0, 8, 128, 8);
+    u8g2_DrawLine(&u8g2, 0, 9, 128, 9);
     // Status Infos
-    u8g2_SetFont(&u8g2, u8g2_font_6x13_me);
-    u8g2_DrawStr(&u8g2, 0, 8 + 13, "Ps 000.0 000.0 000.0");
-    u8g2_DrawStr(&u8g2, 0, 8 + 13 * 2, "Feed 9999 Rpm 10000 ");
+    u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
+    u8g2_DrawStr(&u8g2, 0, 9 + 12, "x000.0 |y000.0 |z000.0");
+    u8g2_DrawStr(&u8g2, 0, 9 + 12 * 2, "Feed 9999 Rpm 10000 ");
     // X 0.000 Y 0.000 Z 0.000
     // Feed 500 Speed 8000
     // Line number: 9999999
     // Buffer Bar (Bf:)
-    u8g2_DrawStr(&u8g2, 0, 8 + 13 * 3, "Buff:");
-    u8g2_DrawBox(&u8g2, 26, 48 - 8, 80, 6);
-    u8g2_DrawFrame(&u8g2, 26, 48 - 8, 100, 6);
+    u8g2_SetFont(&u8g2, u8g2_font_open_iconic_all_1x_t);
+    u8g2_DrawGlyph(&u8g2,0,9 + 12 * 3, 0x10E);
+   // u8g2_DrawStr(&u8g2, 0, 9 + 12 * 3, "Buff");
+    u8g2_DrawBox(&u8g2, 18, 48 - 10, 80, 6);
+    u8g2_DrawFrame(&u8g2, 18, 48 - 10, 100, 6);
     // Separator Line
     //u8g2_DrawLine(&u8g2,0,48,128,48);
     // IconMenu Bar 32x32
     u8g2_SetFont(&u8g2, u8g2_font_open_iconic_all_2x_t);
     for (int pi = 0; pi < 7; pi++)
     {
-        if (MenuIcon[pi] == 0x00)
+        if (MenuIcon[pi] == 0x00){
+            if(pi == menupos)menupos=(menupos+1)%7;;
             continue;
+        }
         u8g2_DrawGlyph(&u8g2, pi * 18, 64, MenuIcon[pi]);
         if (menupos == pi)
         {
@@ -154,6 +196,11 @@ void _otaPage(info_display_handle_t *data)
 {
     u8g2_DrawBox(&u8g2, 0, 26, data->percentual, 6);
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
+
+    u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
+    char perc[5];
+    sprintf(perc,"%d%%",data->percentual);
+    u8g2_DrawStr(&u8g2, 102, 26, perc);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
     u8g2_DrawStr(&u8g2, 2, 17, "OTA update");

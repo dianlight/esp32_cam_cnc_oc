@@ -19,11 +19,14 @@
  *    [x] Ota events!
  *  [x] mDNS
  * GRBL TODO:
- *  [ ] Log out of serial! // GRBL compatible prefix?
+ *  [ ] Log out of serial! // GRBL compatible comment? ()
  *  [ ] Display status
  *  [ ] Manual command
  *  [ ] Probe command
 */
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
+#include <esp_log.h>
+//#include "udp_logging.h"
 #include "pinConfig.h"
 #include <stdio.h>
 #include <dirent.h>
@@ -38,17 +41,19 @@
 #include "esp_timer.h"
 #include <esp_wifi.h>
 #include <esp_event.h>
-#define LOG_LOCAL_LEVEL ESP_LOG_INFO
-#include <esp_log.h>
+
 #include <esp_system.h>
 #include <nvs_flash.h>
 #include <sys/param.h>
-#include <i2cdev.h>
-#include <mcp23x17.h>
-#include <ads111x.h>
+//#include <i2cdev.h>
+//#include <mcp23x17.h>
+//#include <ads111x.h>
 #include <mdns.h>
 
+#include "grbl_friendly_log.h"
+
 #include "infoDisplay.h"
+#include "hid.h"
 
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
@@ -67,8 +72,6 @@
 #define MOUNT_POINT "/sdcard"
 
 static const char *TAG = "mainapp";
-
-
 
 // WebServer and WiFi
 httpd_uri_t uri_handler_jpg = {
@@ -143,10 +146,11 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         ip_event_got_ip_t *ip_data = (ip_event_got_ip_t *)event_data;
 
         start_arduino_ota();
-        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_STARTED, &ota_event_handler, NULL));
-        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_END, &ota_event_handler, NULL));
-        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_PROGRESS, &ota_event_handler, NULL));
-        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_ERROR, &ota_event_handler, NULL));
+        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, ESP_EVENT_ANY_ID, &ota_event_handler, NULL));
+//        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_STARTED, &ota_event_handler, NULL));
+//        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_END, &ota_event_handler, NULL));
+//        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_PROGRESS, &ota_event_handler, NULL));
+//        ESP_ERROR_CHECK(esp_event_handler_register(OTA_EVENT, OTA_EVENT_ERROR, &ota_event_handler, NULL));
 
         /* Start the web server */
         if (*server == NULL)
@@ -172,129 +176,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 }
 
 
-void buttonsTask(void *pvParameters)
-{
-    mcp23x17_t dev;
-    memset(&dev, 0, sizeof(mcp23x17_t));
-    ESP_ERROR_CHECK(mcp23x17_init_desc(&dev, 0, MCP23X17_ADDR_BASE, SDA_GPIO, SCL_GPIO));
-
-    // Setup PORTA0 as input
-    for (u8_t p = 0; p < 8; p++)
-    {
-        mcp23x17_set_mode(&dev, p, MCP23X17_GPIO_INPUT);
-    }
-    mcp23x17_port_set_pullup(&dev, 0x00FF);
-
-    /*         
-    // Setup interrupt on it
-    mcp23x17_set_interrupt(&dev, 0, MCP23X17_INT_ANY_EDGE);
-
-    gpio_set_direction(INTA_GPIO, GPIO_MODE_INPUT);
-    gpio_set_intr_type(INTA_GPIO, GPIO_INTR_ANYEDGE);
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add(INTA_GPIO, intr_handler, NULL);
-
-    // Setup PORTB0 as output
-    mcp23x17_set_mode(&dev, 8, MCP23X17_GPIO_OUTPUT);
-    // do some blinkning
-    bool on = true;
-    while (1)
-    {
-        mcp23x17_set_level(&dev, 8, on);
-        on = !on;
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-    }
-*/
-
-    i2c_dev_t device;
-    memset(&device, 0, sizeof(i2c_dev_t));
-
-    ESP_ERROR_CHECK(ads111x_init_desc(&device, ADS111X_ADDR_GND, 0, SDA_GPIO, SCL_GPIO));
-
-    while (1)
-    {
-        uint32_t val = 0;
-        for (u8_t p = 0; p < 8; p++)
-        {
-            if (mcp23x17_get_level(&dev, p, &val) == ESP_OK)
-            {
-                printf("%c", !val ? '1' : '0');
-                if (p == 0 && !val)
-                {
-                    printf("\nFree heap size: %d\n", (int)xPortGetFreeHeapSize());
-                }
-            }
-            else
-                printf("*");
-        }
-        /*
-        printf("%c%c%c%c%c%c%c%c ",
-                  !mcp23x17_get_level(&dev,0,true) ? 'J' : '0',  // JOYSTICK 
-                  !mcp23x17_get_level(&dev,1,true) ? '2' : '0', 
-                  !mcp23x17_get_level(&dev,2,true) ? '3' : '0',
-                  !mcp23x17_get_level(&dev,3,true) ? 'N' : '0',  // NEXT
-                  !mcp23x17_get_level(&dev,4,true) ? 'B' : '0',  // BEFORE
-                  !mcp23x17_get_level(&dev,5,true) ? 'I' : '0',  // INC
-                  !mcp23x17_get_level(&dev,6,true) ? 'D' : '0',  // DEC 
-                  !mcp23x17_get_level(&dev,7,true) ? 'S' : '0'); // SEL
-        */
-        ESP_ERROR_CHECK(ads111x_set_input_mux(&device, ADS111X_MUX_0_GND)); // positive = AIN0, negative = GND
-        ads111x_set_comp_queue(&device, ADS111X_COMP_QUEUE_DISABLED);
-        ads111x_set_comp_latch(&device, ADS111X_COMP_LATCH_DISABLED);
-        ads111x_set_comp_polarity(&device, ADS111X_COMP_POLARITY_LOW);
-        ads111x_set_comp_mode(&device, ADS111X_COMP_MODE_NORMAL);
-        ads111x_set_data_rate(&device, ADS111X_DATA_RATE_128);
-        ads111x_set_mode(&device, ADS111X_MODE_SINGLE_SHOT);
-        ESP_ERROR_CHECK(ads111x_set_gain(&device, ADS111X_GAIN_4V096));
-
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-
-        ESP_ERROR_CHECK(ads111x_start_conversion(&device));
-        bool busy = true;
-        do
-        {
-            ESP_ERROR_CHECK(ads111x_is_busy(&device, &busy));
-        } while (busy);
-
-        int16_t raw = 0;
-        if (ads111x_get_value(&device, &raw) == ESP_OK)
-        {
-            //    float voltage = ads111x_gain_values[ADS111X_GAIN_4V096] / ADS111X_MAX_VALUE * raw;
-            //    printf("Raw ADC value: %d, voltage: %.04f volts\n", raw, voltage);
-            printf("Raw ADC value: %d,", raw);
-        }
-        else
-            printf("Cannot read ADC value,");
-
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-
-        busy = true;
-        ESP_ERROR_CHECK(ads111x_set_input_mux(&device, ADS111X_MUX_1_GND)); // positive = AIN0, negative = GND
-        ads111x_set_comp_queue(&device, ADS111X_COMP_QUEUE_DISABLED);
-        ads111x_set_comp_latch(&device, ADS111X_COMP_LATCH_DISABLED);
-        ads111x_set_comp_polarity(&device, ADS111X_COMP_POLARITY_LOW);
-        ads111x_set_comp_mode(&device, ADS111X_COMP_MODE_NORMAL);
-        ads111x_set_data_rate(&device, ADS111X_DATA_RATE_128);
-        ads111x_set_mode(&device, ADS111X_MODE_SINGLE_SHOT);
-        ESP_ERROR_CHECK(ads111x_set_gain(&device, ADS111X_GAIN_4V096));
-        ESP_ERROR_CHECK(ads111x_start_conversion(&device));
-        do
-        {
-            ESP_ERROR_CHECK(ads111x_is_busy(&device, &busy));
-        } while (busy);
-
-        if (ads111x_get_value(&device, &raw) == ESP_OK)
-        {
-            //    float voltage = ads111x_gain_values[ADS111X_GAIN_4V096] / ADS111X_MAX_VALUE * raw;
-            //    printf("Raw ADC value: %d, voltage: %.04f volts\n", raw, voltage);
-            printf("Raw ADC value: %d\n", raw);
-        }
-        else
-            printf("Cannot read ADC value\n");
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
 
 // SSD READER
 void ssdtest(void)
@@ -374,7 +255,7 @@ void ssdtest(void)
 // Main
 void app_main(void)
 {
-
+    esp_log_set_vprintf(grbl_friendly_logging_vprintf);
     esp_log_level_set("*", ESP_LOG_DEBUG); // set all components to ERROR level
     esp_log_level_set("spiram", ESP_LOG_WARN);
     esp_log_level_set("efuse", ESP_LOG_WARN);
@@ -383,6 +264,7 @@ void app_main(void)
     esp_log_level_set("httpd_parse", ESP_LOG_INFO);          
     esp_log_level_set("camera", ESP_LOG_INFO);               
     esp_log_level_set("cam", ESP_LOG_DEBUG);               
+    esp_log_level_set("hid", ESP_LOG_DEBUG);               
     esp_log_level_set("mainapp", ESP_LOG_DEBUG); 
     esp_log_level_set("ota_server",ESP_LOG_DEBUG);
     esp_log_level_set("wifi_prov_mgr",ESP_LOG_INFO);
@@ -391,12 +273,11 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(initDisplay());
-//    bootDisplay();
 
     /* Print chip information */
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    printf("This is %s chip with %d CPU cores, WiFi%s%s, ",
+    printf("(This is %s chip with %d CPU cores, WiFi%s%s, ",
            CONFIG_IDF_TARGET,
            chip_info.cores,
            (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
@@ -404,14 +285,14 @@ void app_main(void)
 
     printf("silicon revision %d, ", chip_info.revision);
 
-    printf("%dMB %s flash\n", (spi_flash_get_chip_size()+esp_himem_get_phys_size()) / (1024 * 1024),
+    printf("%dMB %s flash)\n", (spi_flash_get_chip_size()+esp_himem_get_phys_size()) / (1024 * 1024),
            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    printf("Free heap: %d\n", esp_get_free_heap_size());
+    printf("(Free heap: %d)\n", esp_get_free_heap_size());
 
-    printf("Free heap size: %d\n", (int)xPortGetFreeHeapSize());
+    printf("(Free heap size: %d)\n", (int)xPortGetFreeHeapSize());
 
-    printf("Free himem size: %d\n", (int)esp_himem_get_free_size());
+    printf("(Free himem size: %d)\n", (int)esp_himem_get_free_size());
 
 
     static httpd_handle_t server = NULL;
@@ -424,20 +305,20 @@ void app_main(void)
     wifi_prov_mgr();
     //initialise_wifi(&server);
 
-    printf("Free heap size: %d\n", (int)xPortGetFreeHeapSize());
+//    udp_logging_init( CONFIG_LOG_UDP_IP, CONFIG_LOG_UDP_PORT, udp_logging_vprintf );
+
+
+    printf("(Free heap size: %d)\n", (int)xPortGetFreeHeapSize());
 
     ssdtest();
-    printf("Free heap size: %d\n", (int)xPortGetFreeHeapSize());
+    printf("(Free heap size: %d)\n", (int)xPortGetFreeHeapSize());
 
 #ifdef CONFIG_BT_ENABLED
     app_main_bluetooth();
-    printf("Free heap size: %d\n", (int)xPortGetFreeHeapSize());
+    printf("(Free heap size: %d)\n", (int)xPortGetFreeHeapSize());
 #endif
 
-    ESP_ERROR_CHECK(i2cdev_init());
-    // xTaskCreate(buttonsTask, "buttonsTask", configMINIMAL_STACK_SIZE * 6, NULL, 5, NULL);
- //   xTaskCreatePinnedToCore(buttonsTask, "buttonsTask", configMINIMAL_STACK_SIZE * 8, NULL, 1, NULL, APP_CPU_NUM);
+    ESP_ERROR_CHECK(initHID());
 
-//    ESP_ERROR_CHECK(startInfoDisplay());
     infoDisplay();
 }
