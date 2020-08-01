@@ -45,7 +45,7 @@
 #include <esp_system.h>
 #include <nvs_flash.h>
 #include <sys/param.h>
-//#include <i2cdev.h>
+#include <i2cdev.h>
 //#include <mcp23x17.h>
 //#include <ads111x.h>
 #include <mdns.h>
@@ -264,6 +264,8 @@ void app_main(void)
     esp_log_level_set("httpd_parse", ESP_LOG_INFO);          
     esp_log_level_set("camera", ESP_LOG_INFO);               
     esp_log_level_set("cam", ESP_LOG_DEBUG);               
+    esp_log_level_set("display", ESP_LOG_DEBUG);               
+    esp_log_level_set("I2C_DEV", ESP_LOG_DEBUG);               
     esp_log_level_set("hid", ESP_LOG_DEBUG);               
     esp_log_level_set("mainapp", ESP_LOG_DEBUG); 
     esp_log_level_set("ota_server",ESP_LOG_DEBUG);
@@ -272,6 +274,7 @@ void app_main(void)
     ESP_LOGI(TAG,"Application Start");
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+    ESP_ERROR_CHECK(i2cdev_init());
     ESP_ERROR_CHECK(initDisplay());
 
     /* Print chip information */
@@ -319,6 +322,7 @@ void app_main(void)
 #endif
 
     ESP_ERROR_CHECK(initHID());
+
 
     infoDisplay();
 }

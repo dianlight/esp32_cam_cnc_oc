@@ -169,6 +169,7 @@ void hid_task(void *pvParameters)
             else
                 ESP_LOGE(TAG, "Errore reading pin %d", p);
         }
+        ESP_LOGD(TAG, "MPC DONE!");
         /*
         printf("%c%c%c%c%c%c%c%c ",
                   !mcp23x17_get_level(&dev,0,true) ? 'J' : '0',  // JOYSTICK 
@@ -182,7 +183,7 @@ void hid_task(void *pvParameters)
         */
 
         vTaskDelay(300 / portTICK_PERIOD_MS);
-
+/*
         int16_t raw = readADSPin(&device,ADS_PIN_X);
         if(raw >= 0){
             hid_status.dx = hid_status.x - raw;
@@ -207,15 +208,24 @@ void hid_task(void *pvParameters)
         } else {
             ESP_LOGW(TAG, "Cannot read ADC value for Y!");
         }
-
+*/
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
 }
 
 esp_err_t initHID()
 {
-    esp_err_t rt = i2cdev_init();
-    xTaskCreate(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 6, NULL, 5, NULL);
-    //   xTaskCreatePinnedToCore(buttonsTask, "buttonsTask", configMINIMAL_STACK_SIZE * 8, NULL, 1, NULL, APP_CPU_NUM);
-    return rt;
+//    esp_err_t rt = i2cdev_init();
+//    xTaskCreate(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 6, NULL, 5, NULL);
+//    xTaskCreatePinnedToCore(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 8, NULL, 1, NULL, APP_CPU_NUM);
+//    return rt;
+    if (xTaskCreatePinnedToCore(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 8, NULL, 1, NULL, APP_CPU_NUM) == pdPASS)
+    {
+        return ESP_OK;
+    }
+    else
+    {
+        return ESP_FAIL;
+    }
+
 }
