@@ -29,12 +29,13 @@ static void in_serial_task(void *pvParameters)
     uint8_t dtmp[IN_SERIAL_BUFFER_SIZE];
 
     bzero(in_serial_buffer->line_buffer, IN_SERIAL_BUFFER_SIZE);
+    in_serial_buffer->i_line = 0;
     while (true)
     {
 
         if (xQueueReceive(uart_queue, (void *)&event, (portTickType)portMAX_DELAY))
         {
-            ESP_LOGI(TAG, "uart[%d] event:%d", CONFIG_ESP_CONSOLE_UART_NUM,event.type);
+            ESP_LOGD(TAG, "uart[%d] event:%d", CONFIG_ESP_CONSOLE_UART_NUM,event.type);
 
             if (event.type == UART_DATA)
             {

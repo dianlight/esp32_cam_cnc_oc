@@ -89,8 +89,8 @@ static void udp_server_task(void *pvParameters)
             // Data received
             else
             {
-                serial_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                ESP_LOGI(TAG, "Received %d bytes from |%s|", len, serial_buffer);
+            //    serial_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+            //    ESP_LOGI(TAG, "Received %d bytes from |%s|", len, serial_buffer);
 
                 for (uint8_t p = 0; p < len; p++)
                     putchar(serial_buffer[p]);
