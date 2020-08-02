@@ -6,7 +6,7 @@
 #include <ads111x.h>
 #include <esp_log.h>
 
-#define JOY_SENSIBILITY   10
+#define JOY_SENSIBILITY   200
 
 static const char *TAG = "hid";
 
@@ -161,7 +161,7 @@ void hid_task(void *pvParameters)
                     }
                     break;
                 default:
-                    ESP_LOGW(TAG, "Unmapped Pin %d -> %s", p, val ? "HIGH" : "LOW");
+//                    ESP_LOGW(TAG, "Unmapped Pin %d -> %s", p, val ? "HIGH" : "LOW");
                     break;
                 }
                 vTaskMissedYield();
@@ -182,8 +182,8 @@ void hid_task(void *pvParameters)
                   !mcp23x17_get_level(&dev,7,true) ? 'S' : '0'); // SEL
         */
 
-        vTaskDelay(300 / portTICK_PERIOD_MS);
-/*
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+
         int16_t raw = readADSPin(&device,ADS_PIN_X);
         if(raw >= 0){
             hid_status.dx = hid_status.x - raw;
@@ -195,7 +195,7 @@ void hid_task(void *pvParameters)
         } else {
             ESP_LOGW(TAG, "Cannot read ADC value for X!");
         }
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
 
         raw = readADSPin(&device,ADS_PIN_Y);
         if(raw >= 0){
@@ -208,10 +208,12 @@ void hid_task(void *pvParameters)
         } else {
             ESP_LOGW(TAG, "Cannot read ADC value for Y!");
         }
-*/
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
+
+static TaskHandle_t hid_task_handle;
 
 esp_err_t initHID()
 {
@@ -219,7 +221,7 @@ esp_err_t initHID()
 //    xTaskCreate(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 6, NULL, 5, NULL);
 //    xTaskCreatePinnedToCore(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 8, NULL, 1, NULL, APP_CPU_NUM);
 //    return rt;
-    if (xTaskCreatePinnedToCore(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 8, NULL, 1, NULL, APP_CPU_NUM) == pdPASS)
+    if (xTaskCreatePinnedToCore(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 8, NULL, 1, &hid_task_handle, APP_CPU_NUM) == pdPASS)
     {
         return ESP_OK;
     }
@@ -229,3 +231,21 @@ esp_err_t initHID()
     }
 
 }
+
+void stopHid()
+{
+    ESP_LOGD(TAG, "Suspend InfoDisplay task");
+    if (hid_task_handle != NULL)
+    {
+        vTaskDelete(hid_task_handle);
+        hid_task_handle = NULL;
+        /*
+        if (eTaskGetState(&info_display_handle.task) == eRunning)
+            vTaskSuspend(&info_display_handle.task);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        */
+    }
+}
+
+
+
