@@ -11,9 +11,7 @@
  *  [x] Camera streaming 
  *  [x] Wifi configuration (Softap provisioning)
  *  [x] Display on own task (autorefresh)
- *  [ ] Wifi Socket serial
- *      [ ] UDP
- *      [ ] TCP
+ *  [x] Wifi Socket serial
  *  [x] Icon Menu
  *  [x] OTA
  *    [ ] Use Himem for ota
@@ -178,7 +176,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 // Main
 void app_main(void)
 {
-    initialize_in_serial();
+//    initialize_in_serial();
     esp_log_set_vprintf(grbl_friendly_logging_vprintf);
     esp_log_level_set("*", ESP_LOG_DEBUG); // set all components to ERROR level
     esp_log_level_set("spiram", ESP_LOG_WARN);
@@ -228,6 +226,7 @@ void app_main(void)
     static httpd_handle_t server = NULL;
    
     init_camera();
+    initialize_in_serial();
 
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, &server));
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &event_handler, &server));

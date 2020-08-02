@@ -9,7 +9,7 @@ enum {
     SERIAL_EVENT_LINE,                      
 };
 
-#define IN_SERIAL_BUFFER_SIZE 256
+#define IN_SERIAL_BUFFER_SIZE 0xFF
 
 typedef struct {
     uint8_t line_buffer[IN_SERIAL_BUFFER_SIZE];
