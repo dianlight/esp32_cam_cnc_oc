@@ -1,4 +1,34 @@
-menu "Example configuration"
+menu "Grbl COFC configuration"
+
+  menu "Virtual Serial Config"
+
+    config TCP_SERIAL_SUPPORT
+      bool "Support Virtual Serial on TCP Connection"
+      default y
+      help
+        Enable this option if you want to use the TCP virtual serial.
+        Disable this option to save memory.
+    
+    config TCP_SERIAL_PORT
+      int "TCP Port"
+      default "3244"
+      depends on TCP_SERIAL_SUPPORT
+      help
+        The TCP/IP port where serial is exposed
+        
+    config BLUETOOTH_SERIAL_SUPPORT
+      bool "Support Virtual Serial on SPP / Bluetooth Connection"
+      default y
+      depends on BT_ENABLED
+      help
+        Enable this option if you want to use the Bluetooth SPP virtual serial.
+        Disable this option to save memory.
+
+
+   
+
+
+  endmenu
 
   menu "Camera configuration"
 

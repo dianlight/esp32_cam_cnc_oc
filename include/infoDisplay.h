@@ -8,6 +8,7 @@ typedef struct {
         DISPLAY_MAIN_PAGE,
         DISPLAY_OTA_PAGE
     } page;
+    
     TaskHandle_t task;
 
     // MainPage
