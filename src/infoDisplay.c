@@ -15,8 +15,16 @@
 
 static const char *TAG = "idisplay";
 
+enum {
+    ICON_STATUS = 0,
+    ICON_WEBCAM = 7,
+    ICON_TCP_SERIAL = 12,
+    ICON_BLUTOOTH_SERIAL = 13,
+    ICON_WIFI = 14
+};
+
 // IconBar On/Op1 | Op2 | Op2 | Op3 | Op4 | Op5 | Op6 | Op7 | Op8 | Op9 | Off  Icon
-static const uint16_t IconBar[16][10] = {
+static const uint16_t IconBar[15][10] = {
     {0x00DF, 0x00EE, 0x00E9, 0x00D2, 0x00E5, 0x0059, 0x0134, 0x00CB, 0x0118, 0x0000}, //  GRBL_SLEEP | GRBL_IDLE | GRBL_RUN | GRBL_HOLD | GRBL_JOG | GRBL_HOME | GRBL_CHECK | GRBL_DOOR | GRBL_ALARM
     {0x0000, 0x0000},                                                                 //
     {0x0000, 0x0000},                                                                 //
@@ -45,7 +53,7 @@ static const uint16_t MenuIcon[7] = {
 };
 
 u8g2_t u8g2; // a structure which will contain all the data for one display
-static info_display_handle_t info_display_handle;
+info_display_handle_t info_display_handle;
 
 void info_display_task(void *params);
 
@@ -311,7 +319,7 @@ void _bootPage(info_display_handle_t *data)
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
-    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.029");
+    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.030");
 
 }
 
@@ -323,8 +331,28 @@ void _mainPage(info_display_handle_t *data)
     u8g2_SetFont(&u8g2, u8g2_font_open_iconic_all_1x_t);
     for (int pi = 0; pi < 15; pi++)
     {
-        if (IconBar[pi][0] != 0x0000)
-            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][0]);
+        switch (pi)
+        {
+        case ICON_STATUS:
+            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.status]);
+            break;
+        case ICON_WIFI:
+            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.webcam?0:1]);
+            break;
+        case ICON_TCP_SERIAL:
+            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.wifi?0:1]);
+            break;
+        case ICON_BLUTOOTH_SERIAL:
+            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.bluetooth_serial?0:1]);
+            break;
+        case ICON_WEBCAM:
+            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.tcp_serial?0:1]);
+            break;
+        default:
+            if (IconBar[pi][0] != 0x0000)
+                u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][0]);
+            break;
+        }
     }
     // Separator Line
     u8g2_DrawLine(&u8g2, 0, 9, 128, 9);
