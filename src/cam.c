@@ -1,6 +1,7 @@
 #include "cam.h"
 #include <esp_camera.h>
 #include "esp_log.h"
+#include "infoDisplay.h"
 
 
 
@@ -41,6 +42,7 @@ static camera_config_t camera_config = {
 // Camera
 esp_err_t init_camera()
 {
+    info_display_handle.webcam = false;
     //initialize the camera
     esp_err_t err = esp_camera_init(&camera_config);
     if (err != ESP_OK)
@@ -77,6 +79,7 @@ esp_err_t jpg_stream_httpd_handler(httpd_req_t *req)
         return res;
     }
 
+    info_display_handle.webcam = true;
     while (true)
     {
         fb = esp_camera_fb_get();
@@ -133,7 +136,7 @@ esp_err_t jpg_stream_httpd_handler(httpd_req_t *req)
                  (uint32_t)(_jpg_buf_len / 1024),
                  (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time);
     }
-
+    info_display_handle.webcam = false;
     last_frame = 0;
     return res;
 }

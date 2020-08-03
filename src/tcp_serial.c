@@ -12,8 +12,11 @@
 
 #include "in_serial.h"
 #include "tcp_serial.h"
+#include "infoDisplay.h"
 
 static const char *TAG = "tcp_serial";
+
+
 
 static int sock = -1;
 
@@ -70,6 +73,7 @@ static void udp_server_task(void *pvParameters)
             break;
         }
         ESP_LOGI(TAG, "Socket accepted");
+        info_display_handle.tcp_serial = true;
 
         while (1)
         {
@@ -97,11 +101,13 @@ static void udp_server_task(void *pvParameters)
             }
         }
 
+        info_display_handle.tcp_serial = false;
         if (sock != -1)
         {
             ESP_LOGE(TAG, "Shutting down socket and restarting...");
             shutdown(sock, 0);
             close(sock);
+            sock = -1;
         }
     }
 
@@ -133,6 +139,7 @@ static void in_event_handler(void *handler_args, esp_event_base_t event_base, in
 
 esp_err_t startTcpSerial(void)
 {
+    info_display_handle.tcp_serial = false;
     if (xTaskCreate(udp_server_task, "udp_serial", 4096, NULL, 5, NULL) == pdPASS)
     {
         ESP_ERROR_CHECK(esp_event_handler_register(SERIAL_EVENT, SERIAL_EVENT_LINE, &in_event_handler, NULL));

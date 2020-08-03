@@ -38,9 +38,15 @@ typedef struct {
     bool flood;             // Accessory state          A:
     bool mist;              // Accessory state          A:
     // OTA Page
-    uint8_t percentual;     
+    uint8_t percentual;  
+    // MAIN PAGE
+    bool tcp_serial;
+    bool bluetooth_serial;   
+    bool wifi;
+    bool webcam;
 
 } info_display_handle_t;
+extern info_display_handle_t info_display_handle;
 
 esp_err_t initDisplay(void);
 void bootDisplay(void);

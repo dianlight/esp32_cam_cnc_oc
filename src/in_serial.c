@@ -11,6 +11,7 @@
 #include "esp_log.h"
 #include "esp_vfs_dev.h"
 #include "driver/uart.h"
+#include "infoDisplay.h"
 
 #include "errno.h"
 
@@ -30,6 +31,7 @@ static void in_serial_task(void *pvParameters)
 
     bzero(in_serial_buffer->line_buffer, IN_SERIAL_BUFFER_SIZE);
     in_serial_buffer->i_line = 0;
+    bool in_status_message = false;
     while (true)
     {
 
@@ -43,12 +45,55 @@ static void in_serial_task(void *pvParameters)
                 uart_read_bytes(CONFIG_ESP_CONSOLE_UART_NUM, dtmp, event.size, portMAX_DELAY);
                 for(uint16_t p=0;p < event.size; p++, in_serial_buffer->i_line++){
                     in_serial_buffer->line_buffer[in_serial_buffer->i_line]=dtmp[p];
-//                    ESP_LOGI(TAG,"%02X/%d/%d",dtmp[p],in_serial_buffer->i_line, event.size);;
-                    if(dtmp[p] == '\n' || in_serial_buffer->i_line >= IN_SERIAL_BUFFER_SIZE-1 ){
-//                        ESP_LOGI(TAG, "(Invio:%s %d %02X:%02X)", in_serial_buffer->line_buffer, in_serial_buffer->i_line+1
-//                        ,in_serial_buffer->line_buffer[in_serial_buffer->i_line-1]
-//                        ,in_serial_buffer->line_buffer[in_serial_buffer->i_line]
-//                        );
+                    ESP_LOGD(TAG,"%02X/%d/%d",dtmp[p],in_serial_buffer->i_line, event.size);
+                    // STATUS PARSING
+                    if(in_serial_buffer->i_line == 0 && dtmp[p] == '<'){
+                        // Start Status Message
+                        in_status_message = true;
+                    } else if(in_status_message && dtmp[p] == '>'){
+                        // Fine status Meesage - Parsing
+                        for(uint16_t sp=1; sp <= in_serial_buffer->i_line; sp++){
+                            switch (in_serial_buffer->line_buffer[sp])
+                            {
+                            case 'I': // Idle
+                                info_display_handle.status = GRBL_IDLE;
+                                break;
+                            case 'R': // Run
+                                info_display_handle.status = GRBL_RUN;
+                                break;
+                            case 'H': // Hold or Home
+                                if(in_serial_buffer->line_buffer[sp+2] == 'l'){ // Hold
+                                    info_display_handle.status = GRBL_HOLD;
+                                } else {    // Home
+                                    info_display_handle.status = GRBL_HOME;
+                                }
+                                break;
+                            case 'J': // Jog
+                                info_display_handle.status = GRBL_JOG;
+                                break;
+                            case 'A': // Alarm
+                                info_display_handle.status = GRBL_ALARM;
+                                break;
+                            case 'D': // Door
+                                info_display_handle.status = GRBL_DOOR;
+                                break;
+                            case 'C': // Check
+                                info_display_handle.status = GRBL_CHECK;
+                                break;
+                            case 'S': // Sleep
+                                info_display_handle.status = GRBL_SLEEP;
+                                break;                            
+                            default:
+                                break;
+                            }
+                        }
+                    }
+                    // STATUS PARSING
+                    if(dtmp[p] == '\n' || dtmp[p] == '\r' || in_serial_buffer->i_line >= IN_SERIAL_BUFFER_SIZE-1 ){
+                        ESP_LOGD(TAG, "(Invio:%s %d %02X:%02X)", in_serial_buffer->line_buffer, in_serial_buffer->i_line+1
+                        ,in_serial_buffer->line_buffer[in_serial_buffer->i_line-1]
+                        ,in_serial_buffer->line_buffer[in_serial_buffer->i_line]
+                        );
                         in_serial_buffer->i_line++;
                         ESP_ERROR_CHECK(esp_event_post(SERIAL_EVENT, SERIAL_EVENT_LINE, in_serial_buffer, sizeof(in_serial_buffer_t), portMAX_DELAY));
                         in_serial_buffer->i_line = 0;
