@@ -56,6 +56,7 @@ u8g2_t u8g2; // a structure which will contain all the data for one display
 info_display_handle_t info_display_handle;
 
 void info_display_task(void *params);
+void request_status_task(void *params);
 
 static uint8_t menupos = 0; 
 
@@ -292,6 +293,7 @@ esp_err_t initDisplay(void)
 
     ESP_ERROR_CHECK(esp_event_handler_register(HID_EVENT, ESP_EVENT_ANY_ID, &hid_event_handler, NULL));
 
+    xTaskCreate(request_status_task, "request_status_task", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
     if (xTaskCreate(info_display_task, "infoDisplay", configMINIMAL_STACK_SIZE * 6, (void *)&info_display_handle, 1, &info_display_handle.task) == pdPASS)
     {
         ESP_LOGD(TAG, "Create InfoDisplay task");
@@ -319,7 +321,7 @@ void _bootPage(info_display_handle_t *data)
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
-    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.030");
+    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.031");
 
 }
 
@@ -358,8 +360,11 @@ void _mainPage(info_display_handle_t *data)
     u8g2_DrawLine(&u8g2, 0, 9, 128, 9);
     // Status Infos
     u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
-    u8g2_DrawStr(&u8g2, 0, 9 + 12, "x000.0 y000.0 z000.0");
-    u8g2_DrawStr(&u8g2, 0, 9 + 12 * 2, "Feed 9999 Rpm 10000 ");
+    char dispStr[22];
+    sprintf(&dispStr[0],"x%3.1f y%3.1f z%3.1f",info_display_handle.x,info_display_handle.y,info_display_handle.z);
+    u8g2_DrawStr(&u8g2, 0, 9 + 12, dispStr);
+    sprintf(&dispStr[0],"Feed %3d Rpm %5d",info_display_handle.fr,info_display_handle.speed);
+    u8g2_DrawStr(&u8g2, 0, 9 + 12 * 2,dispStr);
     // X 0.000 Y 0.000 Z 0.000
     // Feed 500 Speed 8000
     // Line number: 9999999
@@ -427,6 +432,16 @@ void info_display_task(void *params)
 //        vTaskMissedYield();
         u8g2_SendBuffer(&u8g2);
         vTaskDelay(500 / portTICK_PERIOD_MS); // 500ms refresh for display
+    }
+}
+
+void request_status_task(void *params){
+    while(1){
+        uint32_t current = (unsigned long) (esp_timer_get_time() / 1000ULL);
+        if(current - info_display_handle.lastStatusUpdate > 500){
+            printf("?\n");
+        }
+        vTaskDelay(500 / portTICK_PERIOD_MS); // 2Hz refresh for info request
     }
 }
 

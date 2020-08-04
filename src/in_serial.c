@@ -21,12 +21,12 @@ ESP_EVENT_DEFINE_BASE(SERIAL_EVENT);
 
 static QueueHandle_t uart_queue;
 
-bool nextParam(uint8_t *cursor,char *line,char* name,char args[5][10]){
-    for(int y=0; y< 5; y++)
+bool nextParam(uint8_t *cursor,char *line,char* name,char args[3][10]){
+    for(int y=0; y< 3; y++)
       memset(&args[y], 0x00, sizeof(args[y]));
     char pmstr[255];
     int r = sscanf(&line[*cursor],"%255[^|>]",pmstr);
-    sscanf(pmstr,"%10[^:]:%10[^,],%10[^,],%10[^,],%10[^,],%10[^,]",name,args[0],args[1],args[2],args[3],args[4]);
+    sscanf(pmstr,"%10[^:]:%10[^,],%10[^,],%10[^,]",name,args[0],args[1],args[2]);
     (*cursor)+=strlen(pmstr)+1;
     return r != -1;
 }
@@ -36,7 +36,7 @@ void parsingStatusMessage(char *data, uint16_t size)
 {
     uint8_t cursor = 0;
     char name[10];
-    char argv[5][10] = {0};
+    char argv[3][10] = {0};
     while(nextParam(&cursor,data+1,name,argv)){
             ESP_LOGD(TAG,"Param %d %s \n\tArgs:",cursor,name);
             for(int v=0;v < 10 && argv[v][0] != 0x00;v++){
