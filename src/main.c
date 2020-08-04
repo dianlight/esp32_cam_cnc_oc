@@ -14,19 +14,22 @@
  *  [x] Wifi Socket serial
  *  [x] Icon Menu
  *  [x] OTA
- *    [ ] Use Himem for ota
  *    [x] Correct watchdog conflict
  *    [x] Ota events!
  *  [x] mDNS
  * GRBL TODO:
- *  [ ] Log out of serial! // GRBL compatible comment? ()
+ *  [ ] Log out of serial! 
+ *      [x] GRBL compatible comment? ()
+ *      [x] UDP log
  *  [ ] Display status
  *  [ ] Manual command
  *  [ ] Probe command
 */
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include <esp_log.h>
-//#include "udp_logging.h"
+#ifdef CONFIG_UDP_LOG_SUPPORT
+    #include "udp_logging.h"
+#endif
 #include "pinConfig.h"
 #include <stdio.h>
 //#include <dirent.h>
@@ -178,7 +181,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 // Main
 void app_main(void)
 {
-//    initialize_in_serial();
     esp_log_set_vprintf(grbl_friendly_logging_vprintf);
     esp_log_level_set("*", ESP_LOG_DEBUG); // set all components to ERROR level
     esp_log_level_set("spiram", ESP_LOG_WARN);
@@ -234,9 +236,10 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &event_handler, &server));
     //    ESP_ERROR_CHECK(esp_event_loop_init(event_handler,&server ));
     wifi_prov_mgr();
-    //initialise_wifi(&server);
 
-//    udp_logging_init( CONFIG_LOG_UDP_IP, CONFIG_LOG_UDP_PORT, udp_logging_vprintf );
+    #ifdef CONFIG_UDP_LOG_SUPPORT
+      udp_logging_init( CONFIG_LOG_UDP_IP, CONFIG_LOG_UDP_PORT, udp_logging_vprintf, grbl_friendly_logging_vprintf);
+    #endif 
 
 
     printf("(Free heap size: %d)\n", (int)xPortGetFreeHeapSize());
