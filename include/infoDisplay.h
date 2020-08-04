@@ -13,6 +13,7 @@ typedef struct {
 
     // MainPage
     enum  { 
+        GRBL_UNKNOWN,
         GRBL_IDLE,
         GRBL_RUN,
         GRBL_HOLD,
@@ -21,15 +22,23 @@ typedef struct {
         GRBL_DOOR,
         GRBL_CHECK,
         GRBL_HOME,
-        GRBL_SLEEP
+        GRBL_SLEEP,
     } status;
+    bool status_blink;
+    uint32_t lastStatusUpdate;
     float x,y,z;            // Current Position         MPos:
-    float wco,yco,zco;      // Work Coordinate Offset   WCO:
+    float xco,yco,zco;      // Work Coordinate Offset   WCO:
     uint16_t bf,bfmax;      // Buffer State             Bf:
     uint32_t ln;            // Line Number              Ln:
     uint16_t fr;            // Feed Rate                F: o FS:
     uint16_t speed;         // Spindle Speed            FS:
-    uint8_t pin;            // Pin State  (bitmode)     Pn:
+    bool    limitXYZ[3];    // Pin State                Pn:XYZ
+    bool    limitP;         // Pin State                Pn:P
+    bool    pinDoor;        // Pin State                Pn:D
+    bool    pinHold;        // Pin State                Pn:H
+    bool    pinReset;       // Pin State                Pn:R
+    bool    pinStart;       // Pin State                Pn:S
+    uint8_t ofeed,orapids,ospeed; // Override value     Ov:
     enum  {                 // Accessory state          A:
         SPINDLE_OFF,
         SPINDLE_CW,

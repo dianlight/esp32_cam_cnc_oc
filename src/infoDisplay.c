@@ -23,9 +23,9 @@ enum {
     ICON_WIFI = 14
 };
 
-// IconBar On/Op1 | Op2 | Op2 | Op3 | Op4 | Op5 | Op6 | Op7 | Op8 | Op9 | Off  Icon
-static const uint16_t IconBar[15][10] = {
-    {0x00DF, 0x00EE, 0x00E9, 0x00D2, 0x00E5, 0x0059, 0x0134, 0x00CB, 0x0118, 0x0000}, //  GRBL_SLEEP | GRBL_IDLE | GRBL_RUN | GRBL_HOLD | GRBL_JOG | GRBL_HOME | GRBL_CHECK | GRBL_DOOR | GRBL_ALARM
+// IconBar On/Op1 | Op2 | Op2 | Op3 | Op4 | Op5 | Op6 | Op7 | Op8 | Op9 | Op10 | Off  Icon
+static const uint16_t IconBar[15][11] = {
+    {0x00BC, 0x00DF, 0x00EE, 0x00E9, 0x00D2, 0x00E5, 0x0059, 0x0134, 0x00CB, 0x0118, 0x0000}, // GRBL_UNKNOWN | GRBL_SLEEP | GRBL_IDLE | GRBL_RUN | GRBL_HOLD | GRBL_JOG | GRBL_HOME | GRBL_CHECK | GRBL_DOOR | GRBL_ALARM | 
     {0x0000, 0x0000},                                                                 //
     {0x0000, 0x0000},                                                                 //
     {0x0000, 0x0000},                                                                 //
@@ -337,16 +337,16 @@ void _mainPage(info_display_handle_t *data)
             u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.status]);
             break;
         case ICON_WIFI:
-            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.webcam?0:1]);
+            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.wifi?0:1]);
             break;
         case ICON_TCP_SERIAL:
-            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.wifi?0:1]);
+            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.tcp_serial?0:1]);
             break;
         case ICON_BLUTOOTH_SERIAL:
             u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.bluetooth_serial?0:1]);
             break;
         case ICON_WEBCAM:
-            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.tcp_serial?0:1]);
+            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.webcam?0:1]);
             break;
         default:
             if (IconBar[pi][0] != 0x0000)
