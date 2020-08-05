@@ -14,6 +14,7 @@ typedef struct {
     // MainPage
     enum  { 
         GRBL_UNKNOWN,
+        GRBL_SLEEP,
         GRBL_IDLE,
         GRBL_RUN,
         GRBL_HOLD,
@@ -22,7 +23,6 @@ typedef struct {
         GRBL_DOOR,
         GRBL_CHECK,
         GRBL_HOME,
-        GRBL_SLEEP,
     } status;
     bool status_blink;
     uint32_t lastStatusUpdate;

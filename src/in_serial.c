@@ -243,6 +243,8 @@ esp_err_t initialize_in_serial(void)
 
     /* Disable buffering on stdin */
     setvbuf(stdin, NULL, _IONBF, 0);
+    /* Disable buffering also on stdout */
+    setvbuf(stdout, NULL, _IONBF, 0);
 
     /* Minicom, screen, idf_monitor send CR when ENTER key is pressed */
     esp_vfs_dev_uart_set_rx_line_endings(ESP_LINE_ENDINGS_CR);
