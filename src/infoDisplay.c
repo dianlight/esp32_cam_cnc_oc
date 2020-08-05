@@ -293,7 +293,7 @@ esp_err_t initDisplay(void)
 
     ESP_ERROR_CHECK(esp_event_handler_register(HID_EVENT, ESP_EVENT_ANY_ID, &hid_event_handler, NULL));
 
-    xTaskCreate(request_status_task, "request_status_task", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
+    xTaskCreate(request_status_task, "request_status_task", configMINIMAL_STACK_SIZE * 6, NULL, 1, NULL);
     if (xTaskCreate(info_display_task, "infoDisplay", configMINIMAL_STACK_SIZE * 6, (void *)&info_display_handle, 1, &info_display_handle.task) == pdPASS)
     {
         ESP_LOGD(TAG, "Create InfoDisplay task");
@@ -321,7 +321,7 @@ void _bootPage(info_display_handle_t *data)
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
-    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.031");
+    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.032");
 
 }
 
@@ -439,7 +439,8 @@ void request_status_task(void *params){
     while(1){
         uint32_t current = (unsigned long) (esp_timer_get_time() / 1000ULL);
         if(current - info_display_handle.lastStatusUpdate > 500){
-            printf("?\n");
+            printf("?\r");
+            info_display_handle.lastStatusUpdate = current;
         }
         vTaskDelay(500 / portTICK_PERIOD_MS); // 2Hz refresh for info request
     }

@@ -38,9 +38,9 @@ void parsingStatusMessage(char *data, uint16_t size)
     char name[10];
     char argv[3][10] = {0};
     while(nextParam(&cursor,data+1,name,argv)){
-            ESP_LOGD(TAG,"Param %d %s \n\tArgs:",cursor,name);
-            for(int v=0;v < 10 && argv[v][0] != 0x00;v++){
-                ESP_LOGD(TAG,"[%s]",argv[v]);
+            ESP_LOGI(TAG,"Param %d %s \n\tArgs:",cursor,name);
+            for(int v=0;v < 3 && argv[v][0] != 0x00;v++){
+                ESP_LOGI(TAG,"[%s]",argv[v]);
             }
 
             // Status
@@ -203,17 +203,19 @@ static void in_serial_task(void *pvParameters)
                 for (uint16_t p = 0; p < event.size; p++, in_serial_buffer->i_line++)
                 {
                     in_serial_buffer->line_buffer[in_serial_buffer->i_line] = dtmp[p];
-                    ESP_LOGD(TAG, "%02X/%d/%d", dtmp[p], in_serial_buffer->i_line, event.size);
+//                    ESP_LOGI(TAG, "%02X/%d/%d", dtmp[p], in_serial_buffer->i_line, event.size);
 
                     // STATUS PARSING
                     if (in_serial_buffer->i_line == 0 && dtmp[p] == '<')
                     {
                         // Start Status Message
+//                        ESP_LOGI(TAG,"Start status message!");
                         in_status_message = true;
                     }
-                    else if (in_status_message && dtmp[p] == '>' && in_status_message)
+                    else if (in_status_message && dtmp[p] == '>')
                     {
                         // Fine status Mesage - Parsing
+                        ESP_LOGI(TAG,"Got status message! %s %d",in_serial_buffer->line_buffer,in_serial_buffer->i_line);
                         in_status_message = false;
                         info_display_handle.lastStatusUpdate = (unsigned long) (esp_timer_get_time() / 1000ULL);
                         parsingStatusMessage((char *)in_serial_buffer->line_buffer, in_serial_buffer->i_line);
@@ -221,10 +223,10 @@ static void in_serial_task(void *pvParameters)
 
                     if (dtmp[p] == '\n' || dtmp[p] == '\r' || in_serial_buffer->i_line >= IN_SERIAL_BUFFER_SIZE - 1)
                     {
-                        ESP_LOGD(TAG, "(Invio:%s %d %02X:%02X)", in_serial_buffer->line_buffer, in_serial_buffer->i_line + 1, in_serial_buffer->line_buffer[in_serial_buffer->i_line - 1], in_serial_buffer->line_buffer[in_serial_buffer->i_line]);
+                    //    ESP_LOGI(TAG, "(Invio:%s %d %02X)", in_serial_buffer->line_buffer, in_serial_buffer->i_line + 1, in_serial_buffer->line_buffer[in_serial_buffer->i_line]);
                         in_serial_buffer->i_line++;
                         ESP_ERROR_CHECK(esp_event_post(SERIAL_EVENT, SERIAL_EVENT_LINE, in_serial_buffer, sizeof(in_serial_buffer_t), portMAX_DELAY));
-                        in_serial_buffer->i_line = 0;
+                        in_serial_buffer->i_line = -1;
                         in_status_message = false;
                         bzero(in_serial_buffer->line_buffer, IN_SERIAL_BUFFER_SIZE);
                     }
