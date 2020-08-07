@@ -117,7 +117,7 @@ void hid_task(void *pvParameters)
     memset(&dev, 0, sizeof(mcp23x17_t));
     ESP_ERROR_CHECK(mcp23x17_init_desc(&dev, 0, MCP23X17_ADDR_BASE, SDA_GPIO, SCL_GPIO));
 
-    // Setup PORTA0 as input
+    // Setup DOOR0 as input
     for (uint8_t p = 0; p < 8; p++)
     {
         mcp23x17_set_mode(&dev, p, MCP23X17_GPIO_INPUT);
@@ -135,7 +135,7 @@ void hid_task(void *pvParameters)
 
     // Setup PORTB0 as output
     mcp23x17_set_mode(&dev, 8, MCP23X17_GPIO_OUTPUT);
-    // do some blinkning
+    // do some blinking
     bool on = true;
     while (1)
     {

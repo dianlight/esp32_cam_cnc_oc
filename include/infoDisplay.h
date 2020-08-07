@@ -53,7 +53,7 @@ typedef struct {
     bool flood;             // Accessory state          A:
     bool mist;              // Accessory state          A:
     // OTA Page
-    uint8_t percentual;  
+    uint8_t perceptual;  
     // MAIN PAGE
     bool tcp_serial;
     bool bluetooth_serial;   
@@ -70,7 +70,7 @@ extern info_display_handle_t info_display_handle;
 esp_err_t initDisplay(void);
 void bootDisplay(void);
 void infoDisplay(void);
-void otaDisplay(uint8_t perc);
+void otaDisplay(uint8_t perceptual);
 void messageDisplay(char *message, uint16_t timeout);
 void joyCalibrationDisplay();
 //esp_err_t startInfoDisplay(void);
