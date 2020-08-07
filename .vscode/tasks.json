@@ -1,0 +1,23 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "command": "scripts/udp_log.sh",
+            "args": [],
+            "problemMatcher": [
+                "$platformio"
+            ],
+            "label": "UDP Log monitor"
+        },
+        {
+            "type": "shell",
+            "command": "scripts/serial_upload.sh",
+            "args": [],
+            "problemMatcher": [
+                "$platformio"
+            ],
+            "label": "Serial Upload"
+        }
+    ]
+}
