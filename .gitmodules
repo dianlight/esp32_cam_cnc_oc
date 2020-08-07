@@ -1,6 +1,7 @@
 [submodule "esp-idf-lib"]
 	path = esp-idf-lib
-	url = git@github.com:dianlight/esp-idf-lib.git
+#	url = git@github.com:dianlight/esp-idf-lib.git
+	url = https://github.com/dianlight/esp-idf-lib.git
 [submodule "components/u8g2"]
 	path = components/u8g2
 	url = https://github.com/olikraus/u8g2.git
