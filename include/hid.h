@@ -46,3 +46,5 @@ esp_err_t initHID();
 esp_err_t startJoytickHID();
 esp_err_t stopJoytickHID();
 esp_err_t saveCalibration();
+
+void commit_calibration(hid_status_t *newvalues);
