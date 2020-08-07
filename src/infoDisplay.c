@@ -99,6 +99,7 @@ static void hid_event_handler(void* handler_args, esp_event_base_t event_base, i
             hid_status->joy_ss +=5;
             data->js = hid_status->joy_ss;
             data->step = 0;
+            commit_calibration(hid_status);
             ESP_LOGD(TAG,"INC joy ss %d",hid_status->joy_ss);
         }
         break;
@@ -108,6 +109,7 @@ static void hid_event_handler(void* handler_args, esp_event_base_t event_base, i
             hid_status->joy_ss -=5;
             data->js = hid_status->joy_ss;
             data->step = 0;
+            commit_calibration(hid_status);
             ESP_LOGD(TAG,"DEC joy ss %d",hid_status->joy_ss);
         }
         break;
@@ -129,7 +131,7 @@ static void hid_event_handler(void* handler_args, esp_event_base_t event_base, i
                 selmenu_dir = 0;
             }
         }
-        break;
+//        break;
     case HID_EVENT_JOY_BUTTON:
         ESP_LOGI(TAG,"JOY pressed!");
         if(data->page == DISPLAY_JOY_CALIBRATION_PAGE){
@@ -139,27 +141,26 @@ static void hid_event_handler(void* handler_args, esp_event_base_t event_base, i
                     hid_status->cx = hid_status->x;
                     hid_status->cy = hid_status->y;
                     data->step++;
+                    commit_calibration(hid_status);
                 break;
                 case 1: // Max
                     hid_status->max_x = hid_status->x;
                     hid_status->max_y = hid_status->y;
                     data->step++;
+                    commit_calibration(hid_status);
                 break;
-                case 2: // Final test
-                    data->step++;
-                break;
-                case 3:
+                case 2:
                     ESP_LOGD(TAG,"End wizard!");
                     saveCalibration();
-                    hid_status->calibrated = true;
+                    
                     data->page = data->return_page;
-                    ESP_ERROR_CHECK(stopJoytickHID());
+                    ESP_ERROR_CHECK_WITHOUT_ABORT(stopJoytickHID());
                 break;
             }
         }
         break;
     case HID_EVENT_JOY_MOVE:
-        ESP_LOGI(TAG,"PAGE %d JOY move! %d(%d) %d(%d)",data->page,hid_status->x,hid_status->dx,hid_status->y,hid_status->dy);
+        ESP_LOGI(TAG,"JOY move! %d(%d) %d(%d)",hid_status->x,hid_status->dx,hid_status->y,hid_status->dy);
         if(data->page == DISPLAY_JOY_CALIBRATION_PAGE){
             if(data->step == 0){
                 data->jx = 128 - ( hid_status->x *128 / (UINT16_MAX / hid_status->joy_ss));
@@ -401,31 +402,38 @@ void _messagePage(info_display_handle_t *data)
 
 void _joyCalibrationPage(info_display_handle_t *data)
 {
-    u8g2_DrawFrame(&u8g2, 0, 0, 120, 64);
+    u8g2_DrawFrame(&u8g2, 0, 0, 126, 64);
     u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
     switch(data->step){
         case 0: // Center
             u8g2_DrawStr(&u8g2, 4, 12, "Click Center");
         break;
         case 1: // Max
-            u8g2_DrawStr(&u8g2, 4, 12, "Click Low Right");
+            u8g2_DrawStr(&u8g2, 4, 12, "Click Lower Left");
         break;
-        case 2: // Save 
-            u8g2_DrawStr(&u8g2, 4, 12, "Save");
+        case 2: // test 
+            u8g2_DrawStr(&u8g2, 4, 12, "Click to save");
         break;
         default:
             ESP_LOGW(TAG,"Invalid step! %d",data->step);
         break;
     }
     char message[22];
-    sprintf(message,"X%d Y%d S%d",data->jx,data->jx,data->js);
+    sprintf(message,"X%d Y%d S%d",data->jx,data->jy,data->js);
     u8g2_DrawStr(&u8g2, 4, 22, message);
 
     // Draw simbol X position
-//    u8g2_SetDrawColor(&u8g2, 2);
+    u8g2_SetDrawColor(&u8g2, 2);
     u8g2_SetFont(&u8g2, u8g2_font_open_iconic_all_1x_t);
-    u8g2_DrawGlyph(&u8g2,data->jx,data->jy,0x011B);
-//    u8g2_SetDrawColor(&u8g2, 1);
+    u8g2_DrawGlyph(&u8g2,data->jx-4,data->jy-4,0x011B);
+    u8g2_SetDrawColor(&u8g2, 1);
+
+    int x = data->jx, y = data->jy;
+    x = x>126?126:(x<2?2:x);
+    y = y>62?62:(y<2?2:y);
+    ESP_LOGD(TAG,"Cross %d %d",x,y);
+    u8g2_DrawLine(&u8g2,x-2,y-2,x+2,y+2);
+    u8g2_DrawLine(&u8g2,x+2,y-2,x-2,y+2);
 }
 
 /**

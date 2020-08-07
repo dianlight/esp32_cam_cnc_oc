@@ -20,14 +20,6 @@ static hid_status_t hid_status;
 int16_t readADSPin(i2c_dev_t *device, ads111x_mux_t mux)
 {
     ESP_ERROR_CHECK(ads111x_set_input_mux(device, mux)); // positive = AIN0, negative = GND
-//    ESP_ERROR_CHECK(ads111x_set_comp_queue(device, ADS111X_COMP_QUEUE_DISABLED));
-//    ESP_ERROR_CHECK(ads111x_set_comp_latch(device, ADS111X_COMP_LATCH_DISABLED));
-//    ESP_ERROR_CHECK(ads111x_set_comp_polarity(device, ADS111X_COMP_POLARITY_LOW));
-//    ESP_ERROR_CHECK(ads111x_set_comp_mode(device, ADS111X_COMP_MODE_NORMAL));
-////    ESP_ERROR_CHECK(ads111x_set_data_rate(device, ADS111X_DATA_RATE_128));
-//    ESP_ERROR_CHECK(ads111x_set_data_rate(device, ADS111X_DATA_RATE_8)); // 1 read 125ms
-//    ESP_ERROR_CHECK(ads111x_set_mode(device, ADS111X_MODE_SINGLE_SHOT));
-//    ESP_ERROR_CHECK(ads111x_set_gain(device, ADS111X_GAIN_4V096));
     vTaskDelay(1 / portTICK_PERIOD_MS  ); // 1ms config ok
 
     ESP_ERROR_CHECK(ads111x_start_conversion(device)); // 25us
@@ -80,7 +72,7 @@ void hid_joy_task(void *pvParameters)
             ESP_LOGW(TAG, "Cannot read ADC value for X!");
         }
 
-        vTaskDelay(125 / portTICK_PERIOD_MS);
+        vTaskDelay(125 / portTICK_PERIOD_MS); // 125? Why?
 
         raw = readADSPin(&device,ADS_PIN_Y);
         if(raw >= 0){
@@ -106,7 +98,7 @@ void hid_joy_task(void *pvParameters)
             ESP_LOGW(TAG,"No center calibration, setting autocenter!");
             hid_status.cx = hid_status.x;
             hid_status.cy = hid_status.y;
-            ESP_LOGI(TAG,"Setting Joy Center to %d,%d",hid_status.cx,hid_status.cy);
+            ESP_LOGI(TAG,"AutoSetting Joy Center to %d,%d",hid_status.cx,hid_status.cy);
         } else {
             ESP_ERROR_CHECK(esp_event_post(HID_EVENT, HID_EVENT_JOY_MOVE, &hid_status, sizeof(hid_status_t), 0));
         }
@@ -318,7 +310,10 @@ esp_err_t initHID()
         if(err == ESP_ERR_NVS_NOT_FOUND )hid_status.calibrated = false;
         else if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) reading!\n", esp_err_to_name(err));}
 
-        ESP_LOGI(TAG,"NVS Joy calibration data center(%d,%d) max(%d,%d) sensibility(%d)",hid_status->cx,hid_status->cy,hid_status->max_x,hid_status->max_y,hid_status->joy_ss);
+        ESP_LOGI(TAG,"NVS Joy calibration data center(%d,%d) max(%d %d) sensibility(%d)",
+        hid_status.cx,hid_status.cy,
+        hid_status.max_x,hid_status.max_y,
+        hid_status.joy_ss);
 
         // Close
         nvs_close(my_handle);
@@ -387,13 +382,15 @@ esp_err_t stopJoytickHID(){
     ESP_LOGD(TAG,"Suspend Joy Task!");
     if (hid_joy_task_handle != NULL)
     {
-        if (eTaskGetState(&hid_joy_task_handle) == eRunning) {
+        if (eTaskGetState(&hid_joy_task_handle) == eRunning || eTaskGetState(&hid_joy_task_handle) == eReady) {
             vTaskSuspend(&hid_joy_task_handle);
             return ESP_OK;
         } else {
+            ESP_LOGW(TAG,"Joy Task Invalid state %d!",eTaskGetState(&hid_joy_task_handle));
             return ESP_FAIL;
         }
     }
+    ESP_LOGW(TAG,"No handle for Joy Task!");
     return ESP_FAIL;
 }
 
@@ -407,6 +404,7 @@ esp_err_t saveCalibration(){
     } else {
         // Read
         ESP_LOGD(TAG,"Save calibration to NVS ... ");
+        hid_status.calibrated = true;
 
         err = nvs_set_u16(my_handle,"joy_cx",hid_status.cx);
         if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) writing!\n", esp_err_to_name(err));}
@@ -426,6 +424,14 @@ esp_err_t saveCalibration(){
         nvs_close(my_handle);
         return err;
     } 
+}
+
+void commit_calibration(hid_status_t *newvalues){
+    hid_status.cx = newvalues->cx;
+    hid_status.cy = newvalues->cy;
+    hid_status.max_x = newvalues->max_x;
+    hid_status.max_y = newvalues->max_y;
+    hid_status.joy_ss = newvalues->joy_ss;
 }
  
 
