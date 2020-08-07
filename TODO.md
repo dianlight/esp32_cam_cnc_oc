@@ -25,7 +25,10 @@
 ### ![90%](https://progress-bar.dev/90)  SW TODO: 
  -  [x] Camera streaming 
  -  [x] Wifi configuration (Softap provisioning)
+   - [ ] Add Display Information on self provisioning
+      - [ ] Add qrcode for provisioning (see code for ESP2S app)
  -  [x] Display on own task (autorefresh)
+      - [ ] Refactor Display to C++ objects
  -  [x] Wifi Socket serial
  -  [ ] Icon Menu
  -  [x] OTA
