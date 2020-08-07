@@ -80,24 +80,24 @@ void stop_webserver(httpd_handle_t server)
 static void ota_event_handler(void* handler_args, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     ota_file_info_t *ota_file_info = (ota_file_info_t*)event_data;
-    static uint8_t operc = 0;
-    uint8_t perc;
+    static uint8_t old_perceptual = 0;
+    uint8_t perceptual;
     switch (event_id)
     {
     case OTA_EVENT_STARTED:
         ESP_LOGI(TAG,"OTA Started %p",ota_file_info);
-        operc = 0;
+        old_perceptual = 0;
         otaDisplay(0);
         break;
     case OTA_EVENT_END:
         ESP_LOGI(TAG,"OTA Stopped");
         break;
     case OTA_EVENT_PROGRESS:
-        perc = ota_file_info->flashed * 100 / ota_file_info->size;
-        ESP_LOGD(TAG,"OTA Running %d %d/%d",perc,ota_file_info->flashed,ota_file_info->size);
-        if(operc != perc){
-            operc = perc;
-            otaDisplay(perc);
+        perceptual = ota_file_info->flashed * 100 / ota_file_info->size;
+        ESP_LOGD(TAG,"OTA Running %d %d/%d",perceptual,ota_file_info->flashed,ota_file_info->size);
+        if(old_perceptual != perceptual){
+            old_perceptual = perceptual;
+            otaDisplay(perceptual);
         }
         break;
     case OTA_EVENT_ERROR:

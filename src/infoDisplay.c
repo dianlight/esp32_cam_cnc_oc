@@ -32,7 +32,7 @@ static const uint16_t IconBar[15][11] = {
     {0x0000, 0x0000},                                                                 //
     {0x0000, 0x0000},                                                                 //
     {0x0000, 0x0000},                                                                 //
-    {0x0114, 0x0000},                                                                 // Webcam Streeming
+    {0x0114, 0x0000},                                                                 // Webcam Streaming
     {0x0000, 0x0000},                                                                 //
     {0x0000, 0x0000},                                                                 //
     {0x0000, 0x0000},                                                                 //
@@ -43,10 +43,10 @@ static const uint16_t IconBar[15][11] = {
 };
 
 enum {
-    MENU_CICLE  = 0,
+    MENU_CYCLE  = 0,
     MENU_JOG    = 1,
     MENU_PROBE  = 2,
-    MEMU_SSD    = 4,
+    MENU_SSD    = 4,
     MENU_CONFIG = 6
 };
 
@@ -131,11 +131,11 @@ static void hid_event_handler(void* handler_args, esp_event_base_t event_base, i
                 selmenu_dir = 0;
             }
         }
-//        break;
+        break;
     case HID_EVENT_JOY_BUTTON:
         ESP_LOGI(TAG,"JOY pressed!");
         if(data->page == DISPLAY_JOY_CALIBRATION_PAGE){
-            ESP_LOGD(TAG,"Exec Stap %d",data->step);
+            ESP_LOGD(TAG,"Exec Step %d",data->step);
             switch(data->step){
                 case 0: // Center
                     hid_status->cx = hid_status->x;
@@ -252,10 +252,10 @@ void infoDisplay(void){
     
 }
 
-void otaDisplay(uint8_t perc)
+void otaDisplay(uint8_t perceptual)
 {
     info_display_handle.page = DISPLAY_OTA_PAGE;
-    info_display_handle.percentual = perc;
+    info_display_handle.perceptual = perceptual;
 }
 
 static uint64_t lastPageTime;
@@ -376,13 +376,13 @@ void _mainPage(info_display_handle_t *data)
 
 void _otaPage(info_display_handle_t *data)
 {
-    u8g2_DrawBox(&u8g2, 0, 26, data->percentual, 6);
+    u8g2_DrawBox(&u8g2, 0, 26, data->perceptual, 6);
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
 
     u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
-    char perc[5];
-    sprintf(perc,"%d%%",data->percentual);
-    u8g2_DrawStr(&u8g2, 102, 26+6, perc);
+    char perceptual[5];
+    sprintf(perceptual,"%d%%",data->perceptual);
+    u8g2_DrawStr(&u8g2, 102, 26+6, perceptual);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
     u8g2_DrawStr(&u8g2, 2, 17, "OTA update");
@@ -390,7 +390,7 @@ void _otaPage(info_display_handle_t *data)
 
 void _messagePage(info_display_handle_t *data)
 {
-//    u8g2_DrawBox(&u8g2, 0, 26, data->percentual, 6);
+//    u8g2_DrawBox(&u8g2, 0, 26, data->perceptual, 6);
     u8g2_DrawFrame(&u8g2, 0, 10, 127, 58);
 
     u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
@@ -448,7 +448,7 @@ void info_display_task(void *params)
         if(data->page_timeout > 0 && data->return_page != DISPLAY_NO_PAGE ){
             uint64_t current = (esp_timer_get_time() / 1000ULL);
             if(current - lastPageTime > data->page_timeout){
-                ESP_LOGD(TAG,"Return to previus page!");
+                ESP_LOGD(TAG,"Return to previous page!");
                 data->page = data->return_page;
                 data->return_page = DISPLAY_NO_PAGE;
             }
