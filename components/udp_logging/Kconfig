@@ -1,0 +1,43 @@
+menu "UDP Logging"
+
+config UDP_LOG_SUPPORT
+    bool "Send log to UDP after Network UP"
+    default y
+    help
+    Enable this option if you want to use the UDP log trasmission.
+    Disable this option to log on serial port.
+
+choice UDP_LOG_MODE
+    bool "Working mode for UDP_LOG"
+    default UDP_LOG_MIRROR_MODE
+    help
+        udp_logging can work in different way. Choose any one.
+
+    config UDP_LOG_MIRROR_MODE
+        bool "Always mirror on fallback logger"
+    config UDP_LOG_FALLBACK_MODE
+        bool "Send to fallback logger if not connect"
+    config UDP_LOG_ONLY_MODE
+        bool "Drop log if not connect"
+endchoice
+
+config UDP_LOG_MODE
+    int
+    default 1 if UDP_LOG_MIRROR_MODE
+    default 2 if UDP_LOG_FALLBACK_MODE
+    default 3 if UDP_LOG_ONLY_MODE
+
+
+config LOG_UDP_PORT
+    int "UDP Port" 
+    default 16666
+    depends on UDP_LOG_SUPPORT
+    help
+        UDP Port to send log output to
+
+config LOG_UDP_IP
+    string "IP address to send log output"
+	default "192.168.0.255"
+	help
+		IP address to send log output to
+endmenu
