@@ -3,3 +3,9 @@ image:
 
 tasks:
   - init: cmake .
+
+vscode:
+  extensions:
+    - ms-vscode.cpptools@0.30.0-insiders:MrvYc6FRPRj6FcVewFeeZQ==
+    - platformio.platformio-ide@2.0.0-beta.5:nEFbKoDySth3CfssfFrEFg==
+    - ivanhofer.git-assistant@1.3.8:WW3vAnV4pUAg4B5REJ50/g==
