@@ -1,13 +1,19 @@
 #pragma once
 
+typedef enum  {
+    DISPLAY_BOOT_PAGE,
+    DISPLAY_MAIN_PAGE,
+    DISPLAY_OTA_PAGE,
+    DISPLAY_MESSAGE_PAGE,
+    DISPLAY_JOY_CALIBRATION_PAGE,
+    DISPLAY_NO_PAGE = -1,
+} page_t;
 
 typedef struct {
     // Common
-    enum {
-        DISPLAY_BOOT_PAGE,
-        DISPLAY_MAIN_PAGE,
-        DISPLAY_OTA_PAGE
-    } page;
+    page_t page;
+    page_t return_page;
+    uint8_t page_timeout;
     
     TaskHandle_t task;
 
@@ -53,7 +59,11 @@ typedef struct {
     bool bluetooth_serial;   
     bool wifi;
     bool webcam;
-
+    // MESSAGE PAGE
+    char message[28];
+    // CALIBRATION
+    uint8_t step,js;
+    uint16_t jx,jy;
 } info_display_handle_t;
 extern info_display_handle_t info_display_handle;
 
@@ -61,6 +71,8 @@ esp_err_t initDisplay(void);
 void bootDisplay(void);
 void infoDisplay(void);
 void otaDisplay(uint8_t perc);
+void messageDisplay(char *message, uint16_t timeout);
+void joyCalibrationDisplay();
 //esp_err_t startInfoDisplay(void);
 //void stopInfoDisplay(void);
 

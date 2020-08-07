@@ -4,9 +4,11 @@
 #include <i2cdev.h>
 #include <mcp23x17.h>
 #include <ads111x.h>
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include <esp_log.h>
+#include "nvs_flash.h"
+#include "nvs.h"
 
-#define JOY_SENSIBILITY   200
 
 static const char *TAG = "hid";
 
@@ -18,21 +20,23 @@ static hid_status_t hid_status;
 int16_t readADSPin(i2c_dev_t *device, ads111x_mux_t mux)
 {
     ESP_ERROR_CHECK(ads111x_set_input_mux(device, mux)); // positive = AIN0, negative = GND
-    ads111x_set_comp_queue(device, ADS111X_COMP_QUEUE_DISABLED);
-    ads111x_set_comp_latch(device, ADS111X_COMP_LATCH_DISABLED);
-    ads111x_set_comp_polarity(device, ADS111X_COMP_POLARITY_LOW);
-    ads111x_set_comp_mode(device, ADS111X_COMP_MODE_NORMAL);
-    ads111x_set_data_rate(device, ADS111X_DATA_RATE_128);
-    ads111x_set_mode(device, ADS111X_MODE_SINGLE_SHOT);
-    ESP_ERROR_CHECK(ads111x_set_gain(device, ADS111X_GAIN_4V096));
+//    ESP_ERROR_CHECK(ads111x_set_comp_queue(device, ADS111X_COMP_QUEUE_DISABLED));
+//    ESP_ERROR_CHECK(ads111x_set_comp_latch(device, ADS111X_COMP_LATCH_DISABLED));
+//    ESP_ERROR_CHECK(ads111x_set_comp_polarity(device, ADS111X_COMP_POLARITY_LOW));
+//    ESP_ERROR_CHECK(ads111x_set_comp_mode(device, ADS111X_COMP_MODE_NORMAL));
+////    ESP_ERROR_CHECK(ads111x_set_data_rate(device, ADS111X_DATA_RATE_128));
+//    ESP_ERROR_CHECK(ads111x_set_data_rate(device, ADS111X_DATA_RATE_8)); // 1 read 125ms
+//    ESP_ERROR_CHECK(ads111x_set_mode(device, ADS111X_MODE_SINGLE_SHOT));
+//    ESP_ERROR_CHECK(ads111x_set_gain(device, ADS111X_GAIN_4V096));
+    vTaskDelay(1 / portTICK_PERIOD_MS  ); // 1ms config ok
 
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-
-    ESP_ERROR_CHECK(ads111x_start_conversion(device));
+    ESP_ERROR_CHECK(ads111x_start_conversion(device)); // 25us
+    vTaskDelay(1 / portTICK_PERIOD_MS ); // 1ms for request
     bool busy = true;
     do
     {
         ESP_ERROR_CHECK(ads111x_is_busy(device, &busy));
+        vTaskDelay(10 / portTICK_PERIOD_MS ); // 10ms rate is for RATE_128
     } while (busy);
 
     int16_t raw = 0;
@@ -45,6 +49,75 @@ int16_t readADSPin(i2c_dev_t *device, ads111x_mux_t mux)
         return -1;
     }
 }
+
+void hid_joy_task(void *pvParameters)
+{
+
+    i2c_dev_t device;
+    memset(&device, 0, sizeof(i2c_dev_t));
+
+    ESP_ERROR_CHECK(ads111x_init_desc(&device, ADS111X_ADDR_GND, 0, SDA_GPIO, SCL_GPIO));
+    ESP_ERROR_CHECK(ads111x_set_data_rate(&device, ADS111X_DATA_RATE_8)); // 1 read 125ms
+    ESP_ERROR_CHECK(ads111x_set_mode(&device, ADS111X_MODE_SINGLE_SHOT));
+    ESP_ERROR_CHECK(ads111x_set_gain(&device, ADS111X_GAIN_4V096));
+    ESP_ERROR_CHECK(ads111x_set_comp_queue(&device, ADS111X_COMP_QUEUE_DISABLED));
+    ESP_ERROR_CHECK(ads111x_set_comp_latch(&device, ADS111X_COMP_LATCH_DISABLED));
+    ESP_ERROR_CHECK(ads111x_set_comp_polarity(&device, ADS111X_COMP_POLARITY_LOW));
+    ESP_ERROR_CHECK(ads111x_set_comp_mode(&device, ADS111X_COMP_MODE_NORMAL));
+
+
+
+    ESP_LOGD(TAG,"Start task  hid_joy_task");
+
+    while(1){
+        
+        int16_t raw = readADSPin(&device,ADS_PIN_X);
+        if(raw >= 0){
+            raw = raw / hid_status.joy_ss;
+            hid_status.dx = hid_status.x - raw;
+            hid_status.x = raw;
+        } else {
+            ESP_LOGW(TAG, "Cannot read ADC value for X!");
+        }
+
+        vTaskDelay(125 / portTICK_PERIOD_MS);
+
+        raw = readADSPin(&device,ADS_PIN_Y);
+        if(raw >= 0){
+            raw = raw / hid_status.joy_ss;
+            hid_status.dy = hid_status.y - raw;
+            hid_status.y = raw;            
+        } else {
+            ESP_LOGW(TAG, "Cannot read ADC value for Y!");
+        }
+
+        ESP_LOGD(TAG,"X %d Y %d dx %d dy %d",hid_status.x,hid_status.y,hid_status.dx,hid_status.dy);
+        if(hid_status.calibrated && hid_status.x > hid_status.max_x){
+            ESP_LOGW(TAG,"Invalid X calibration data!");
+            hid_status.calibrated = false;
+            hid_status.max_x = hid_status.x;
+        }
+        if(hid_status.calibrated && hid_status.y > hid_status.max_y){
+            ESP_LOGW(TAG,"Invalid Y calibration data!");
+            hid_status.calibrated = false;
+            hid_status.max_y = hid_status.y;
+        }
+        if(hid_status.cx == 0){
+            ESP_LOGW(TAG,"No center calibration, setting autocenter!");
+            hid_status.cx = hid_status.x;
+            hid_status.cy = hid_status.y;
+            ESP_LOGI(TAG,"Setting Joy Center to %d,%d",hid_status.cx,hid_status.cy);
+        } else {
+            ESP_ERROR_CHECK(esp_event_post(HID_EVENT, HID_EVENT_JOY_MOVE, &hid_status, sizeof(hid_status_t), 0));
+        }
+
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+
+
+
+}
+
 
 void hid_task(void *pvParameters)
 {
@@ -80,11 +153,12 @@ void hid_task(void *pvParameters)
     }
 */
 
+/*
     i2c_dev_t device;
     memset(&device, 0, sizeof(i2c_dev_t));
 
     ESP_ERROR_CHECK(ads111x_init_desc(&device, ADS111X_ADDR_GND, 0, SDA_GPIO, SCL_GPIO));
-
+*/
     while (1)
     {
         uint32_t val = 0;
@@ -169,7 +243,7 @@ void hid_task(void *pvParameters)
             else
                 ESP_LOGE(TAG, "Errore reading pin %d", p);
         }
-        ESP_LOGD(TAG, "MPC DONE!");
+       // ESP_LOGD(TAG, "MPC DONE!");
         /*
         printf("%c%c%c%c%c%c%c%c ",
                   !mcp23x17_get_level(&dev,0,true) ? 'J' : '0',  // JOYSTICK 
@@ -182,8 +256,8 @@ void hid_task(void *pvParameters)
                   !mcp23x17_get_level(&dev,7,true) ? 'S' : '0'); // SEL
         */
 
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-
+        vTaskDelay(200 / portTICK_PERIOD_MS);
+/*
         int16_t raw = readADSPin(&device,ADS_PIN_X);
         if(raw >= 0){
             hid_status.dx = hid_status.x - raw;
@@ -208,8 +282,8 @@ void hid_task(void *pvParameters)
         } else {
             ESP_LOGW(TAG, "Cannot read ADC value for Y!");
         }
-
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+*/
+//        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
@@ -217,10 +291,42 @@ static TaskHandle_t hid_task_handle;
 
 esp_err_t initHID()
 {
-//    esp_err_t rt = i2cdev_init();
-//    xTaskCreate(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 6, NULL, 5, NULL);
-//    xTaskCreatePinnedToCore(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 8, NULL, 1, NULL, APP_CPU_NUM);
-//    return rt;
+    // Calibration Data
+    hid_status.calibrated = false;
+    nvs_handle_t my_handle;
+    esp_err_t err = nvs_open("hid_storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        // Read
+        ESP_LOGD(TAG,"Reading calibration from NVS ... ");
+        hid_status.calibrated = true;
+        err = nvs_get_u16(my_handle,"joy_cx",&hid_status.cx);
+        if(err == ESP_ERR_NVS_NOT_FOUND )hid_status.calibrated = false;
+        else if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) reading!\n", esp_err_to_name(err));}
+        err = nvs_get_u16(my_handle,"joy_cy",&hid_status.cy);
+        if(err == ESP_ERR_NVS_NOT_FOUND )hid_status.calibrated = false;
+        else if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) reading!\n", esp_err_to_name(err));}
+        err = nvs_get_u16(my_handle,"joy_max_x",&hid_status.max_x);
+        if(err == ESP_ERR_NVS_NOT_FOUND )hid_status.calibrated = false;
+        else if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) reading!\n", esp_err_to_name(err));}
+        err = nvs_get_u16(my_handle,"joy_max_y",&hid_status.max_y);
+        if(err == ESP_ERR_NVS_NOT_FOUND )hid_status.calibrated = false;
+        else if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) reading!\n", esp_err_to_name(err));}
+        hid_status.joy_ss = 10; // Default value
+        err = nvs_get_u8(my_handle,"joy_sensibility",&hid_status.joy_ss);
+        if(err == ESP_ERR_NVS_NOT_FOUND )hid_status.calibrated = false;
+        else if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) reading!\n", esp_err_to_name(err));}
+
+        ESP_LOGI(TAG,"NVS Joy calibration data center(%d,%d) max(%d,%d) sensibility(%d)",hid_status->cx,hid_status->cy,hid_status->max_x,hid_status->max_y,hid_status->joy_ss);
+
+        // Close
+        nvs_close(my_handle);
+    }   
+    if(!hid_status.calibrated) 
+         ESP_ERROR_CHECK(esp_event_post(HID_EVENT, HID_EVENT_JOY_NEED_CALIBRATION, &hid_status, sizeof(hid_status_t), portMAX_DELAY));
+    //
+
     if (xTaskCreatePinnedToCore(hid_task, "hid_task", configMINIMAL_STACK_SIZE * 8, NULL, 1, &hid_task_handle, APP_CPU_NUM) == pdPASS)
     {
         return ESP_OK;
@@ -247,5 +353,80 @@ void stopHid()
     }
 }
 
+static TaskHandle_t hid_joy_task_handle;
+
+
+esp_err_t startJoytickHID(){
+    ESP_LOGD(TAG,"Request Joy Task!");
+//    if(!hid_status.calibrated) 
+//        ESP_ERROR_CHECK(esp_event_post(HID_EVENT, HID_EVENT_JOY_NEED_CALIBRATION, &hid_status, sizeof(hid_status_t), portMAX_DELAY));
+
+    if (hid_joy_task_handle != NULL)
+    {
+        if (eTaskGetState(&hid_joy_task_handle) == eSuspended) {
+            ESP_LOGD(TAG,"Resume Joy Task!");
+            vTaskResume(&hid_joy_task_handle);
+            return ESP_OK;
+        } else {
+            return ESP_FAIL;
+        }
+    } else {
+        ESP_LOGD(TAG,"Start Joy Task!");
+        if (xTaskCreatePinnedToCore(hid_joy_task, "hid_joy_task", configMINIMAL_STACK_SIZE * 8, NULL, 1, &hid_joy_task_handle, APP_CPU_NUM) == pdPASS)
+        {
+            return ESP_OK;
+        }
+        else
+        {
+            return ESP_FAIL;
+        }
+    }
+}
+
+esp_err_t stopJoytickHID(){
+    ESP_LOGD(TAG,"Suspend Joy Task!");
+    if (hid_joy_task_handle != NULL)
+    {
+        if (eTaskGetState(&hid_joy_task_handle) == eRunning) {
+            vTaskSuspend(&hid_joy_task_handle);
+            return ESP_OK;
+        } else {
+            return ESP_FAIL;
+        }
+    }
+    return ESP_FAIL;
+}
+
+esp_err_t saveCalibration(){
+   // Calibration Data
+    nvs_handle_t my_handle;
+    esp_err_t err = nvs_open("hid_storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG,"Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+        return err;
+    } else {
+        // Read
+        ESP_LOGD(TAG,"Save calibration to NVS ... ");
+
+        err = nvs_set_u16(my_handle,"joy_cx",hid_status.cx);
+        if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) writing!\n", esp_err_to_name(err));}
+        err = nvs_set_u16(my_handle,"joy_cy",hid_status.cy);
+        if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) writing!\n", esp_err_to_name(err));}
+        err = nvs_set_u16(my_handle,"joy_max_x",hid_status.max_x);
+        if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) writing!\n", esp_err_to_name(err));}
+        err = nvs_set_u16(my_handle,"joy_max_y",hid_status.max_y);
+        if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) writing!\n", esp_err_to_name(err));}
+        err = nvs_set_u8(my_handle,"joy_sensibility",hid_status.joy_ss);
+        if (err != ESP_OK) { hid_status.calibrated = false; ESP_LOGW(TAG,"Error (%s) writing!\n", esp_err_to_name(err));}
+
+        ESP_LOGD(TAG,"Committing updates in NVS ... ");
+        err = nvs_commit(my_handle);
+ 
+        // Close
+        nvs_close(my_handle);
+        return err;
+    } 
+}
+ 
 
 

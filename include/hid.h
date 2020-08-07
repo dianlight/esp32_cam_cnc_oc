@@ -12,7 +12,8 @@ enum {                                       // declaration of the specific even
     HID_EVENT_INC,
     HID_EVENT_DEC,
     HID_EVENT_JOY_BUTTON,
-    HID_EVENT_JOY_MOVE                           
+    HID_EVENT_JOY_MOVE,
+    HID_EVENT_JOY_NEED_CALIBRATION                           
 };
 
 
@@ -25,15 +26,23 @@ typedef enum {
 
 
 typedef struct {
+    bool calibrated;
+
     hid_button_status_t sel;
     hid_button_status_t before;
     hid_button_status_t next;
     hid_button_status_t inc;
     hid_button_status_t dec;
     hid_button_status_t joy;
-    uint16_t x,y;
+
+    uint16_t x,y,cx,cy,max_x,max_y;
+    uint8_t joy_ss;
     int16_t dx,dy;
 } hid_status_t;
 
 
 esp_err_t initHID();
+
+esp_err_t startJoytickHID();
+esp_err_t stopJoytickHID();
+esp_err_t saveCalibration();

@@ -1,7 +1,7 @@
 #include "in_serial.h"
 #include <stdio.h>
 #include <string.h>
-#define LOG_LOCAL_LEVEL ESP_LOG_INFO
+//#define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include <esp_log.h>
 
 #include "freertos/FreeRTOS.h"
@@ -38,10 +38,10 @@ void parsingStatusMessage(char *data, uint16_t size)
     char name[10];
     char argv[3][10] = {0};
     while(nextParam(&cursor,data+1,name,argv)){
-            ESP_LOGI(TAG,"Param %d %s \n\tArgs:",cursor,name);
-            for(int v=0;v < 3 && argv[v][0] != 0x00;v++){
-                ESP_LOGI(TAG,"[%s]",argv[v]);
-            }
+//            ESP_LOGD(TAG,"Param %d %s \n\tArgs:",cursor,name);
+//            for(int v=0;v < 3 && argv[v][0] != 0x00;v++){
+//                ESP_LOGD(TAG,"[%s]",argv[v]);
+//            }
 
             // Status
             if(strcmp(name,"Idle") == 0){
@@ -215,7 +215,7 @@ static void in_serial_task(void *pvParameters)
                     else if (in_status_message && dtmp[p] == '>')
                     {
                         // Fine status Mesage - Parsing
-                        ESP_LOGI(TAG,"Got status message! %s %d",in_serial_buffer->line_buffer,in_serial_buffer->i_line);
+                        ESP_LOGD(TAG,"Got status message! %s %d",in_serial_buffer->line_buffer,in_serial_buffer->i_line);
                         in_status_message = false;
                         info_display_handle.lastStatusUpdate = (unsigned long) (esp_timer_get_time() / 1000ULL);
                         parsingStatusMessage((char *)in_serial_buffer->line_buffer, in_serial_buffer->i_line);

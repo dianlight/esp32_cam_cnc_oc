@@ -1,17 +1,17 @@
-#define LOG_LOCAL_LEVEL ESP_LOG_INFO
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include <esp_log.h>
 #include "pinConfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
-
+#include <i2cdev.h>
+#include "hal/u8g2_i2c_hal.h"
 #include <u8g2.h>
 
 #include "infoDisplay.h"
 #include "hid.h"
-#include <i2cdev.h>
+#include "jog.h"
 
-#define I2C_FREQ_HZ 1000000
 
 static const char *TAG = "idisplay";
 
@@ -42,9 +42,17 @@ static const uint16_t IconBar[15][11] = {
     {0x00F7, 0x0000},                                                                 // WiFi
 };
 
+enum {
+    MENU_CICLE  = 0,
+    MENU_JOG    = 1,
+    MENU_PROBE  = 2,
+    MEMU_SSD    = 4,
+    MENU_CONFIG = 6
+};
+
 static const uint16_t MenuIcon[7] = {
     0x00F3, // Cycle start
-    0x00E0, // Free hold
+    0x00E0, // Jog
     0x0082, // Probe
     0x0000, //
     0x00AB, // SD/File
@@ -58,194 +66,136 @@ info_display_handle_t info_display_handle;
 void info_display_task(void *params);
 void request_status_task(void *params);
 
-static uint8_t menupos = 0; 
+static uint8_t menupos = 0, selmenupos = 0; 
+static int8_t selmenu_dir = 0; 
+
 
 static void hid_event_handler(void* handler_args, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
+    info_display_handle_t *data = (info_display_handle_t *)handler_args;
+
+    // Return on event!
+//    if(info_display_handle.return_page != DISPLAY_NO_PAGE ){
+//        info_display_handle.page = info_display_handle.return_page;
+//        info_display_handle.return_page = DISPLAY_NO_PAGE;
+//        info_display_handle.page_timeout = 0;
+//    }
+
     hid_status_t *hid_status = (hid_status_t*)event_data;
     switch (event_id)
     {
     case HID_EVENT_BEFORE:
-        if(menupos > 0)menupos--;
-        else menupos = 7;
+        selmenu_dir = -1;
+        if(selmenupos+selmenu_dir < 0)selmenupos = 6;
+        else selmenupos = (selmenupos + selmenu_dir) % 7;
         break;
     case HID_EVENT_NEXT:
-        menupos=(menupos+1)%7;
+        selmenu_dir = 1;
+        selmenupos = (selmenupos + selmenu_dir) % 7;
         break;
     case HID_EVENT_INC:
         ESP_LOGI(TAG,"INC pressed!");
+        if(data->page == DISPLAY_JOY_CALIBRATION_PAGE){
+            hid_status->joy_ss +=5;
+            data->js = hid_status->joy_ss;
+            data->step = 0;
+            ESP_LOGD(TAG,"INC joy ss %d",hid_status->joy_ss);
+        }
         break;
     case HID_EVENT_DEC:
         ESP_LOGI(TAG,"DEC pressed!");
+        if(data->page == DISPLAY_JOY_CALIBRATION_PAGE){
+            hid_status->joy_ss -=5;
+            data->js = hid_status->joy_ss;
+            data->step = 0;
+            ESP_LOGD(TAG,"DEC joy ss %d",hid_status->joy_ss);
+        }
         break;
     case HID_EVENT_SEL:
-        ESP_LOGI(TAG,"SEL pressed!");
+        ESP_LOGD(TAG,"SEL pressed!");
+        if(selmenupos != menupos){
+            if(menupos == MENU_JOG) stopJog();
+            if(selmenupos == MENU_JOG){
+                if(startJog()){
+                    menupos = selmenupos;
+                    selmenu_dir = 0;
+                }
+            } else if (selmenupos == MENU_CONFIG){
+                menupos = selmenupos;
+                selmenu_dir = 0;
+                joyCalibrationDisplay();
+            } else {
+                menupos = selmenupos;
+                selmenu_dir = 0;
+            }
+        }
         break;
     case HID_EVENT_JOY_BUTTON:
         ESP_LOGI(TAG,"JOY pressed!");
+        if(data->page == DISPLAY_JOY_CALIBRATION_PAGE){
+            ESP_LOGD(TAG,"Exec Stap %d",data->step);
+            switch(data->step){
+                case 0: // Center
+                    hid_status->cx = hid_status->x;
+                    hid_status->cy = hid_status->y;
+                    data->step++;
+                break;
+                case 1: // Max
+                    hid_status->max_x = hid_status->x;
+                    hid_status->max_y = hid_status->y;
+                    data->step++;
+                break;
+                case 2: // Final test
+                    data->step++;
+                break;
+                case 3:
+                    ESP_LOGD(TAG,"End wizard!");
+                    saveCalibration();
+                    hid_status->calibrated = true;
+                    data->page = data->return_page;
+                    ESP_ERROR_CHECK(stopJoytickHID());
+                break;
+            }
+        }
         break;
     case HID_EVENT_JOY_MOVE:
-        ESP_LOGI(TAG,"JOY move! %d %d",hid_status->dx,hid_status->dy);
+        ESP_LOGI(TAG,"PAGE %d JOY move! %d(%d) %d(%d)",data->page,hid_status->x,hid_status->dx,hid_status->y,hid_status->dy);
+        if(data->page == DISPLAY_JOY_CALIBRATION_PAGE){
+            if(data->step == 0){
+                data->jx = 128 - ( hid_status->x *128 / (UINT16_MAX / hid_status->joy_ss));
+                data->jy = hid_status->y *64 / (UINT16_MAX / hid_status->joy_ss);
+                data->js = hid_status->joy_ss;
+                ESP_LOGI(TAG,"Cursor Step0 at %d %d %d",data->jx,data->jy,data->js);
+            } else if(data->step == 1){
+                data->jx = 128 - (hid_status->x *128 / (hid_status->cx * 2));
+                data->jy = hid_status->y *64 / (hid_status->cy *2);
+                data->js = hid_status->joy_ss;
+                ESP_LOGI(TAG,"Cursor Step1 at %d %d %d",data->jx,data->jy,data->js);
+            } else {
+                data->jx = 128 - (hid_status->x *128 / hid_status->max_x);
+                data->jy = hid_status->y *64 / hid_status->max_y;
+                data->js = hid_status->joy_ss;
+                ESP_LOGI(TAG,"Cursor Step2 at %d %d %d",data->jx,data->jy,data->js);
+            }
+        }
+        break;
+    case HID_EVENT_JOY_NEED_CALIBRATION:
+        if(data->page != DISPLAY_JOY_CALIBRATION_PAGE){
+            data->step =0;
+            ESP_LOGI(TAG,"JOY need calibration!");
+            joyCalibrationDisplay();
+        } else {
+            ESP_LOGD(TAG,"Already on Calibration Page!");
+        }
         break;
     default:
         break;
     }
 }
 
-/**
- * HAL Function for ESP32 using i2cdev
- */
-uint8_t u8g2_i2cdev_byte_cb(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr){
-	ESP_LOGD(TAG, "i2c_cb: Received a msg: %d, arg_int: %d, arg_ptr: %p", msg, arg_int, arg_ptr);
-
-    static i2c_dev_t device;
-    static uint8_t *buffer; 
-    static uint16_t bufferpos =0;
-
-	switch(msg) {
-		case U8X8_MSG_BYTE_SET_DC: {
-			break;
-		}
-
-		case U8X8_MSG_BYTE_INIT: {
-            uint8_t i2c_address = u8x8_GetI2CAddress(u8x8);
-            ESP_LOGD(TAG,"Request init of i2c device %02X.", i2c_address>>1);
-            memset(&device, 0, sizeof(i2c_dev_t));
-            device.port = 0;
-            device.addr = i2c_address >> 1;
-            device.cfg.sda_io_num = SDA_GPIO;
-            device.cfg.scl_io_num = SCL_GPIO;
-            device.cfg.master.clk_speed = I2C_FREQ_HZ;
-            ESP_ERROR_CHECK(i2c_dev_create_mutex(&device));
-            ESP_LOGD(TAG,"Done init of i2c device");
-			break;
-		}
-
-		case U8X8_MSG_BYTE_SEND: {
-            ESP_LOGD(TAG,"Send %d bytes to i2c",arg_int);
-			uint8_t* data_ptr = (uint8_t*)arg_ptr;
-			ESP_LOG_BUFFER_HEXDUMP(TAG, data_ptr, arg_int, ESP_LOG_VERBOSE);
-            memcpy(&buffer[bufferpos],arg_ptr,arg_int);
-            bufferpos+=arg_int;
-			break;
-		}
-
-		case U8X8_MSG_BYTE_START_TRANSFER: {
-		    uint8_t i2c_address = u8x8_GetI2CAddress(u8x8);
-            buffer = malloc(4096);
-            bufferpos = 0;
-            ESP_LOGD(TAG, "Start I2C transfer to %02X.", i2c_address>>1);
-			break;
-		}
-
-		case U8X8_MSG_BYTE_END_TRANSFER: {
-			ESP_LOGD(TAG, "End I2C transfer.");
-            I2C_DEV_TAKE_MUTEX(&device);
-            I2C_DEV_CHECK(&device, i2c_dev_write(&device,NULL,0,buffer, bufferpos));
-            I2C_DEV_GIVE_MUTEX(&device);  
-            free(buffer);   
-            bufferpos=0;       
-			break;
-		}
-	}
-	return 0;
-}
-
-/*
- * HAL callback function as prescribed by the U8G2 library.  This callback is invoked
- * to handle callbacks for GPIO and delay functions.
- */
-uint8_t u8g2_gpio_and_delay_cb(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
-	ESP_LOGD(TAG, "gpio_and_delay_cb: Received a msg: %d, arg_int: %d, arg_ptr: %p", msg, arg_int, arg_ptr);
-
-	switch(msg) {
-	// Initialize the GPIO and DELAY HAL functions.  If the pins for DC and RESET have been
-	// specified then we define those pins as GPIO outputs.
-		case U8X8_MSG_GPIO_AND_DELAY_INIT: {
-            /*
-			uint64_t bitmask = 0;
-			if (u8g2_esp32_hal.dc != U8G2_ESP32_HAL_UNDEFINED) {
-				bitmask = bitmask | (1ull<<u8g2_esp32_hal.dc);
-			}
-			if (u8g2_esp32_hal.reset != U8G2_ESP32_HAL_UNDEFINED) {
-				bitmask = bitmask | (1ull<<u8g2_esp32_hal.reset);
-			}
-			if (u8g2_esp32_hal.cs != U8G2_ESP32_HAL_UNDEFINED) {
-				bitmask = bitmask | (1ull<<u8g2_esp32_hal.cs);
-			}
-
-            if (bitmask==0) {
-            	break;
-            }
-			gpio_config_t gpioConfig;
-			gpioConfig.pin_bit_mask = bitmask;
-			gpioConfig.mode         = GPIO_MODE_OUTPUT;
-			gpioConfig.pull_up_en   = GPIO_PULLUP_DISABLE;
-			gpioConfig.pull_down_en = GPIO_PULLDOWN_ENABLE;
-			gpioConfig.intr_type    = GPIO_INTR_DISABLE;
-			gpio_config(&gpioConfig);
-            */
-			break;
-		}
-
-	// Set the GPIO reset pin to the value passed in through arg_int.
-		case U8X8_MSG_GPIO_RESET:
-        /*
-			if (u8g2_esp32_hal.reset != U8G2_ESP32_HAL_UNDEFINED) {
-				gpio_set_level(u8g2_esp32_hal.reset, arg_int);
-			}
-            */
-			break;
-	// Set the GPIO client select pin to the value passed in through arg_int.
-		case U8X8_MSG_GPIO_CS:
-        /*
-			if (u8g2_esp32_hal.cs != U8G2_ESP32_HAL_UNDEFINED) {
-				gpio_set_level(u8g2_esp32_hal.cs, arg_int);
-			}
-            */
-			break;
-	// Set the Software I²C pin to the value passed in through arg_int.
-		case U8X8_MSG_GPIO_I2C_CLOCK:
-        /*
-			if (u8g2_esp32_hal.scl != U8G2_ESP32_HAL_UNDEFINED) {
-				gpio_set_level(u8g2_esp32_hal.scl, arg_int);
-//				printf("%c",(arg_int==1?'C':'c'));
-			}
-            */
-			break;
-	// Set the Software I²C pin to the value passed in through arg_int.
-		case U8X8_MSG_GPIO_I2C_DATA:
-        /*
-			if (u8g2_esp32_hal.sda != U8G2_ESP32_HAL_UNDEFINED) {
-				gpio_set_level(u8g2_esp32_hal.sda, arg_int);
-//				printf("%c",(arg_int==1?'D':'d'));
-			}
-        */    
-			break;
-
-	// Delay for the number of milliseconds passed in through arg_int.
-		case U8X8_MSG_DELAY_MILLI:
-			vTaskDelay(arg_int/portTICK_PERIOD_MS);
-			break;
-	}
-	return 0;
-} 
-
-/**
- * END
- */
-
-
 
 esp_err_t initDisplay(void)
 {
-    /* u8g2_esp32_hal solution * /
-    u8g2_esp32_hal_t u8g2_esp32_hal = U8G2_ESP32_HAL_DEFAULT;
-    u8g2_esp32_hal.sda = SDA_GPIO;
-    u8g2_esp32_hal.scl = SCL_GPIO;
-    u8g2_esp32_hal_init(u8g2_esp32_hal);
-    / **/
-
     /* i2cdev solution */
     i2c_dev_t device;
     memset(&device, 0, sizeof(i2c_dev_t));
@@ -256,30 +206,10 @@ esp_err_t initDisplay(void)
     device.cfg.scl_io_num = SCL_GPIO;
     ESP_ERROR_CHECK(i2c_dev_create_mutex(&device));
 
-    /*    
-    u8g2_Setup_ssd1309_i2c_128x64_noname2_2(
-        //	u8g2_Setup_ssd1306_i2c_128x32_univision_f(
-        &u8g2,
-        U8G2_R0,
-        //u8x8_byte_sw_i2c,
-        u8g2_esp32_i2c_byte_cb,
-        u8g2_esp32_gpio_and_delay_cb); // init u8g2 structure
-*/
-/*
     u8g2_Setup_ssd1309_i2c_128x64_noname2_f(
-        //	u8g2_Setup_ssd1306_i2c_128x32_univision_f(
+    //	u8g2_Setup_ssd1306_i2c_128x32_univision_f(
         &u8g2,
         U8G2_R0,
-        //u8x8_byte_sw_i2c,
-        u8g2_esp32_i2c_byte_cb,
-        u8g2_esp32_gpio_and_delay_cb); // init u8g2 structure
-*/        
-
-    u8g2_Setup_ssd1309_i2c_128x64_noname2_f(
-        //	u8g2_Setup_ssd1306_i2c_128x32_univision_f(
-        &u8g2,
-        U8G2_R0,
-        //u8x8_byte_sw_i2c,
         u8g2_i2cdev_byte_cb,
         u8g2_gpio_and_delay_cb); // init u8g2 structure
 
@@ -290,8 +220,9 @@ esp_err_t initDisplay(void)
     u8g2_SetPowerSave(&u8g2, 0); // wake up display
 
     info_display_handle.page = DISPLAY_BOOT_PAGE;
+    info_display_handle.return_page = DISPLAY_NO_PAGE;
 
-    ESP_ERROR_CHECK(esp_event_handler_register(HID_EVENT, ESP_EVENT_ANY_ID, &hid_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(HID_EVENT, ESP_EVENT_ANY_ID, &hid_event_handler, (void *)&info_display_handle));
 
     xTaskCreate(request_status_task, "request_status_task", configMINIMAL_STACK_SIZE * 6, NULL, 1, NULL);
     if (xTaskCreate(info_display_task, "infoDisplay", configMINIMAL_STACK_SIZE * 6, (void *)&info_display_handle, 1, &info_display_handle.task) == pdPASS)
@@ -305,8 +236,19 @@ esp_err_t initDisplay(void)
     }
 }
 
+/**
+ * Display Functions 
+ **/
+
 void infoDisplay(void){
-    info_display_handle.page = DISPLAY_MAIN_PAGE;
+    if(info_display_handle.page == DISPLAY_BOOT_PAGE) {
+        info_display_handle.page = DISPLAY_MAIN_PAGE;
+    }
+    else 
+    {
+        info_display_handle.return_page = DISPLAY_MAIN_PAGE; 
+    }
+    
 }
 
 void otaDisplay(uint8_t perc)
@@ -315,18 +257,48 @@ void otaDisplay(uint8_t perc)
     info_display_handle.percentual = perc;
 }
 
+static uint64_t lastPageTime;
+
+void messageDisplay(char *message, uint16_t timeout){
+    strncpy(info_display_handle.message,message,sizeof(info_display_handle.message));
+    info_display_handle.return_page = info_display_handle.page;
+    info_display_handle.page = DISPLAY_MESSAGE_PAGE;
+    info_display_handle.page_timeout = timeout;
+    lastPageTime = (esp_timer_get_time() / 1000ULL);
+}
+
+void joyCalibrationDisplay(){
+    info_display_handle.page_timeout = 0;
+    info_display_handle.step = 0;
+    info_display_handle.return_page = info_display_handle.page;
+    info_display_handle.page = DISPLAY_JOY_CALIBRATION_PAGE;
+    ESP_ERROR_CHECK_WITHOUT_ABORT(startJoytickHID());
+}
+
+/**
+ * Rendering functions
+ **/
+
 void _bootPage(info_display_handle_t *data)
 {
     u8g2_DrawBox(&u8g2, 0, 26, 80, 6);
     u8g2_DrawFrame(&u8g2, 0, 26, 100, 6);
 
     u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
-    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.032");
+    u8g2_DrawStr(&u8g2, 2, 17, "GRBL v0.034");
 
 }
 
+static uint64_t last_mainPage_millis = 0;
+static bool blink = false;
+
 void _mainPage(info_display_handle_t *data)
 {
+    uint64_t current =  (esp_timer_get_time() / 1000ULL);
+    if( current - last_mainPage_millis > 500){
+        last_mainPage_millis = current;
+        blink = !blink;
+    }
 
     // GRBL <Idle|MPos:0.000,0.000,0.000|FS:0.0,0>
     // Icon Bar 16x16
@@ -336,7 +308,8 @@ void _mainPage(info_display_handle_t *data)
         switch (pi)
         {
         case ICON_STATUS:
-            u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.status]);
+            if(!info_display_handle.status_blink && blink)
+                u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.status]);
             break;
         case ICON_WIFI:
             u8g2_DrawGlyph(&u8g2, pi * 8, 8, IconBar[pi][info_display_handle.wifi?0:1]);
@@ -361,7 +334,7 @@ void _mainPage(info_display_handle_t *data)
     // Status Infos
     u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
     char dispStr[22];
-    sprintf(&dispStr[0],"x%3.1f y%3.1f z%3.1f",info_display_handle.x,info_display_handle.y,info_display_handle.z);
+    sprintf(&dispStr[0],"MPos x%03.1f y%03.1f z%03.1f",info_display_handle.x,info_display_handle.y,info_display_handle.z);
     u8g2_DrawStr(&u8g2, 0, 9 + 12, dispStr);
     sprintf(&dispStr[0],"Feed %3d Rpm %5d",info_display_handle.fr,info_display_handle.speed);
     u8g2_DrawStr(&u8g2, 0, 9 + 12 * 2,dispStr);
@@ -381,11 +354,17 @@ void _mainPage(info_display_handle_t *data)
     for (int pi = 0; pi < 7; pi++)
     {
         if (MenuIcon[pi] == 0x00){
-            if(pi == menupos)menupos=(menupos+1)%7;;
+            if(pi == selmenupos)selmenupos=(selmenupos+selmenu_dir)%7;;
             continue;
         }
         u8g2_DrawGlyph(&u8g2, pi * 18, 64, MenuIcon[pi]);
         if (menupos == pi)
+        {
+            u8g2_SetDrawColor(&u8g2, 2);
+            u8g2_DrawBox(&u8g2, pi * 18, 64 - 18, 18, 18);
+            u8g2_SetDrawColor(&u8g2, 1);
+        }
+        if (menupos != selmenupos && selmenupos == pi && blink)
         {
             u8g2_SetDrawColor(&u8g2, 2);
             u8g2_DrawBox(&u8g2, pi * 18, 64 - 18, 18, 18);
@@ -408,11 +387,64 @@ void _otaPage(info_display_handle_t *data)
     u8g2_DrawStr(&u8g2, 2, 17, "OTA update");
 }
 
+void _messagePage(info_display_handle_t *data)
+{
+//    u8g2_DrawBox(&u8g2, 0, 26, data->percentual, 6);
+    u8g2_DrawFrame(&u8g2, 0, 10, 127, 58);
+
+    u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
+    u8g2_DrawStr(&u8g2, 2, 32, data->message);
+
+//    u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
+//    u8g2_DrawStr(&u8g2, 2, 17, "OTA update");
+}
+
+void _joyCalibrationPage(info_display_handle_t *data)
+{
+    u8g2_DrawFrame(&u8g2, 0, 0, 120, 64);
+    u8g2_SetFont(&u8g2, u8g2_font_6x12_me);
+    switch(data->step){
+        case 0: // Center
+            u8g2_DrawStr(&u8g2, 4, 12, "Click Center");
+        break;
+        case 1: // Max
+            u8g2_DrawStr(&u8g2, 4, 12, "Click Low Right");
+        break;
+        case 2: // Save 
+            u8g2_DrawStr(&u8g2, 4, 12, "Save");
+        break;
+        default:
+            ESP_LOGW(TAG,"Invalid step! %d",data->step);
+        break;
+    }
+    char message[22];
+    sprintf(message,"X%d Y%d S%d",data->jx,data->jx,data->js);
+    u8g2_DrawStr(&u8g2, 4, 22, message);
+
+    // Draw simbol X position
+//    u8g2_SetDrawColor(&u8g2, 2);
+    u8g2_SetFont(&u8g2, u8g2_font_open_iconic_all_1x_t);
+    u8g2_DrawGlyph(&u8g2,data->jx,data->jy,0x011B);
+//    u8g2_SetDrawColor(&u8g2, 1);
+}
+
+/**
+ * Running Tasks
+ **/
+
 void info_display_task(void *params)
 {
     info_display_handle_t *data = (info_display_handle_t *)params;
     while (true)
     {
+        if(data->page_timeout > 0 && data->return_page != DISPLAY_NO_PAGE ){
+            uint64_t current = (esp_timer_get_time() / 1000ULL);
+            if(current - lastPageTime > data->page_timeout){
+                ESP_LOGD(TAG,"Return to previus page!");
+                data->page = data->return_page;
+                data->return_page = DISPLAY_NO_PAGE;
+            }
+        }
         u8g2_ClearBuffer(&u8g2);
         switch (data->page)
         {
@@ -425,8 +457,15 @@ void info_display_task(void *params)
         case DISPLAY_OTA_PAGE:
             _otaPage(data);
             break;
+        case DISPLAY_MESSAGE_PAGE:
+            _messagePage(data);
+            break;
+        case DISPLAY_JOY_CALIBRATION_PAGE:
+            _joyCalibrationPage(data);
+            break;
         default:
-            ESP_LOGW(TAG, "No page to display!");
+            ESP_LOGI(TAG, "No page to display go Home!");
+            data->page = DISPLAY_MAIN_PAGE;
             break;
         }
 //        vTaskMissedYield();
@@ -437,7 +476,7 @@ void info_display_task(void *params)
 
 void request_status_task(void *params){
     while(1){
-        uint32_t current = (unsigned long) (esp_timer_get_time() / 1000ULL);
+        uint64_t current = (esp_timer_get_time() / 1000ULL);
         if(current - info_display_handle.lastStatusUpdate > 500){
             printf("?\r");
             info_display_handle.lastStatusUpdate = current;
@@ -445,40 +484,3 @@ void request_status_task(void *params){
         vTaskDelay(500 / portTICK_PERIOD_MS); // 2Hz refresh for info request
     }
 }
-
-/*
-
-esp_err_t startInfoDisplay()
-{
-    if (info_display_handle.task == NULL)
-    {
-        if (xTaskCreate(info_display_task, "infoDisplay", configMINIMAL_STACK_SIZE * 6, (void *)&info_display_handle, 1, &info_display_handle.task) == pdPASS)
-        {
-            ESP_LOGD(TAG, "Create InfoDisplay task");
-            return ESP_OK;
-        }
-        else
-        {
-            return ESP_FAIL;
-        }
-    }
-    else
-    {
-        vTaskResume(&info_display_handle.task);
-        return ESP_OK;
-    }
-}
-
-void stopInfoDisplay()
-{
-    ESP_LOGD(TAG, "Suspend InfoDisplay task");
-    if (info_display_handle.task != NULL)
-    {
-        //        vTaskDelete(info_display_handle.task);
-        //        info_display_handle.task = NULL;
-        if (eTaskGetState(&info_display_handle.task) == eRunning)
-            vTaskSuspend(&info_display_handle.task);
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-    }
-}
-*/

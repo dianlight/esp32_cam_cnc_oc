@@ -1,29 +1,4 @@
 /* Esp32_Cam_CNC_Offline_Controller
- * HW TODO:
- *  [x] Display
- *  [x] Wifi
- *  [ ] Bluetooth serial
- *  [x] Joysitck
- *  [x] Buttons
- *  [x] Cam
- *  [x] Himem (8Gb)
- * SW TODO:
- *  [x] Camera streaming 
- *  [x] Wifi configuration (Softap provisioning)
- *  [x] Display on own task (autorefresh)
- *  [x] Wifi Socket serial
- *  [x] Icon Menu
- *  [x] OTA
- *    [x] Correct watchdog conflict
- *    [x] Ota events!
- *  [x] mDNS
- * GRBL TODO:
- *  [ ] Log out of serial! 
- *      [x] GRBL compatible comment? ()
- *      [x] UDP log
- *  [ ] Display status
- *  [ ] Manual command
- *  [ ] Probe command
 */
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include <esp_log.h>
@@ -191,8 +166,9 @@ void app_main(void)
     esp_log_level_set("camera", ESP_LOG_INFO);               
     esp_log_level_set("cam", ESP_LOG_DEBUG);               
     esp_log_level_set("idisplay", ESP_LOG_DEBUG);               
-//    esp_log_level_set("I2C_DEV", ESP_LOG_DEBUG);               
+    esp_log_level_set("I2C_DEV", ESP_LOG_WARN);               
     esp_log_level_set("hid", ESP_LOG_DEBUG);               
+    esp_log_level_set("joy", ESP_LOG_DEBUG);               
     esp_log_level_set("mmc", ESP_LOG_DEBUG);               
     esp_log_level_set("mainapp", ESP_LOG_DEBUG); 
     esp_log_level_set("ota_server",ESP_LOG_DEBUG);
@@ -246,7 +222,6 @@ void app_main(void)
 
     ssdtest();
     printf("(Free heap size: %d)\n", (int)xPortGetFreeHeapSize());
-
 
     ESP_ERROR_CHECK(initHID());
 
