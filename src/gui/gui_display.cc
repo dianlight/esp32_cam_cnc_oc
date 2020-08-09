@@ -92,6 +92,7 @@ void GuiDisplay::GuiDisplayTask(void *params) {
       current_gui_page->renderPage(&u8g2);
     } else if (gui_pages.size() > 0) {
       current_gui_page = gui_pages.begin()->second;
+      current_gui_page->enterPage();
       current_gui_page->renderPage(&u8g2);
     } else {
       ESP_LOGW(TAG, "No page to display!");
@@ -106,10 +107,15 @@ void GuiDisplay::GuiEventHandler(void *handler_args,
                                  void *event_data) {
   switch (event_id) {
     case GUI_EVENT_CHANGE_PAGE: {
-      const char *pagename =
-          static_cast<const char *>(event_data);
+      const char *pagename = static_cast<const char *>(event_data);
       ESP_LOGD(TAG, "Request page switch to %s", pagename);
       DisplayGuiPage(std::string(pagename));
+      break;
+    }
+    case GUI_EVENT_CLOSE_PAGE: {
+      if (!DisplayGuiClosePage())
+        ESP_LOGW(TAG, "Unable to close Page %s",
+                 current_gui_page->GetName().c_str());
       break;
     }
     default: {

@@ -7,7 +7,7 @@
  * @license This file is distributed under the MIT License. See LICENSE.TXT for
  *details.
  *
- * @brief This header file defines the GuiPageBoot virtual class.
+ * @brief This header file defines the GuiPageBoot class.
  *
  * @author lucio.tarantino@gmail.com (Lucio Tarantino).
  *
