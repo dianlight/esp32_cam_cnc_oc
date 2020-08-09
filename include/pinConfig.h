@@ -12,4 +12,4 @@
 
 // ads111x
 #define ADS_PIN_X      ADS111X_MUX_0_GND
-#define ADS_PIN_Y      ADS111X_MUX_1_GND 
+#define ADS_PIN_Y      ADS111X_MUX_1_GND
