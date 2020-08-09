@@ -6,7 +6,7 @@
  * @license This file is distributed under the MIT License. See LICENSE.TXT for
  *details.
  *
- * @brief This the GuiPageBoot class.
+ * @brief This the GuiPageOta class.
  *
  * @author lucio.tarantino@gmail.com (Lucio Tarantino).
  *

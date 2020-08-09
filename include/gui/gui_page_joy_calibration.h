@@ -7,7 +7,7 @@
  * @license This file is distributed under the MIT License. See LICENSE.TXT for
  *details.
  *
- * @brief This header file defines the GuiPageOta class.
+ * @brief This header file defines the GuiPageJoyCalibration class.
  *
  * @author lucio.tarantino@gmail.com (Lucio Tarantino).
  *
@@ -20,19 +20,21 @@
 
 namespace gui {
 
-class GuiPageOta : public GuiPage {
+class GuiPageJoyCalibration : public GuiPage {
  public:
-  GuiPageOta();
-  ~GuiPageOta();
+  GuiPageJoyCalibration();
+  ~GuiPageJoyCalibration();
 
   void renderPage(u8g2_t* u8g2);
   void enterPage();
   void exitPage();
 
  private:
-  uint8_t perceptual;
-  esp_event_handler_t ota_event_handler;
-  void OtaEventHandler(void* handler_args, esp_event_base_t event_base,
+  uint8_t step;
+  uint8_t jx, jy, js;
+
+  esp_event_handler_t hid_event_handler;
+  void HidEventHandler(void* handler_args, esp_event_base_t event_base,
                        int32_t event_id, void* event_data);
 };
 
