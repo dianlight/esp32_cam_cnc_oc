@@ -34,14 +34,9 @@ GuiPageJoyCalibration::GuiPageJoyCalibration() {
     static_cast<GuiPageJoyCalibration *>(handler_args)
         ->HidEventHandler(handler_args, event_base, event_id, event_data);
   };
-  ESP_ERROR_CHECK(esp_event_handler_register(HID_EVENT, ESP_EVENT_ANY_ID,
-                                             hid_event_handler,
-                                             static_cast<void *>(this)));
 }
 
 GuiPageJoyCalibration::~GuiPageJoyCalibration() {
-  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_event_handler_unregister(
-      HID_EVENT, ESP_EVENT_ANY_ID, hid_event_handler));
 }
 
 void GuiPageJoyCalibration::renderPage(u8g2_t *u8g2) {
