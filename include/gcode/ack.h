@@ -27,11 +27,11 @@ namespace gcode {
 
 class AckParser : public GCodeParser {
  public:
-  OkParser(char *ack) : GCodeParser(ack) {}
+  explicit AckParser(char *ack) : GCodeParser(ack) {}
   //  ~StatusParser() {}
 
   bool isLineParsable(char *str) {
-    if (std::strcmp(str, name) == 0)
+    if (std::strstr(str, name) == str)
       return true;
     else
       return false;
@@ -51,5 +51,6 @@ class Ack : public GCodeResponseData {
 
 // Automatic initialization and register
 AckParser grbl_ok_parser("ok");
+AckParser grbl_error_parser("error:");
 
 }  // namespace gcode
