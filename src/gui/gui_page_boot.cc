@@ -34,7 +34,8 @@ void GuiPageBoot::renderPage(u8g2_t *u8g2) {
   u8g2_DrawFrame(u8g2, 0, 26, 100, 6);
 
   u8g2_SetFont(u8g2, u8g2_font_ncenB14_tr);
-  u8g2_DrawStr(u8g2, 2, 17, "GRBL v0.034");
+  u8g2_DrawStr(u8g2, 2, 17, "GRBL v0.134");
+  ESP_LOGD(TAG, "Display Boot Logo");
 }
 
 void GuiPageBoot::enterPage() {}
