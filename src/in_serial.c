@@ -3,13 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 // #define LOG_LOCAL_LEVEL ESP_LOG_INFO
-#include <esp_log.h>
-
-#include "driver/uart.h"
 #include <errno.h>
 #include <esp_log.h>
 #include <esp_system.h>
 #include <esp_vfs_dev.h>
+
+#include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "infoDisplay.h"
@@ -78,37 +77,25 @@ void parsingStatusMessage(char *data, uint16_t size) {
     } else if (strcmp(name, "Sleep") == 0) {
       info_display_handle.status = GRBL_SLEEP;
       info_display_handle.status_blink = false;
-    } else
-        // MPos - Current Position
-        if (strcmp(name, "MPos") == 0) {
+    } else if (strcmp(name, "MPos") == 0) {  // MPos - Current Position
       info_display_handle.x = atof(argv[0]);
       info_display_handle.y = atof(argv[1]);
       info_display_handle.z = atof(argv[2]);
-    } else
-        // WCO - Work Coordinate Offset
-        if (strcmp(name, "WCO") == 0) {
+    } else if (strcmp(name, "WCO") == 0) {  // WCO - Work Coordinate Offset
       info_display_handle.xco = atof(argv[0]);
       info_display_handle.yco = atof(argv[1]);
       info_display_handle.zco = atof(argv[2]);
-    } else
-        // Bf - Buffer State
-        if (strcmp(name, "Bf") == 0) {
+    } else if (strcmp(name, "Bf") == 0) {  // Bf - Buffer State
       info_display_handle.bf = atoi(argv[0]);
       info_display_handle.bfmax = atoi(argv[1]);
-    } else
-        // Ln - Line number
-        if (strcmp(name, "Ln") == 0) {
+    } else if (strcmp(name, "Ln") == 0) {  // Ln - Line number
       info_display_handle.ln = atoi(argv[0]);
-    } else
-        // F FS - Current Feed and Speed
-        if (strcmp(name, "F") == 0) {
+    } else if (strcmp(name, "F") == 0) {  // F FS - Current Feed and Speed
       info_display_handle.fr = atoi(argv[0]);
     } else if (strcmp(name, "FS") == 0) {
       info_display_handle.fr = atoi(argv[0]);
       info_display_handle.speed = atoi(argv[1]);
-    } else
-        // Pn - Input Pin State
-        if (strcmp(name, "Pn") == 0) {
+    } else if (strcmp(name, "Pn") == 0) {  // Pn - Input Pin State
       info_display_handle.limitXYZ[0] = false;  // Pin State Pn:XYZ
       info_display_handle.limitXYZ[1] = false;  // Pin State Pn:XYZ
       info_display_handle.limitXYZ[2] = false;  // Pin State Pn:XYZ
@@ -146,15 +133,11 @@ void parsingStatusMessage(char *data, uint16_t size) {
             break;
         }
       }
-    } else
-        // Ov - Override Values
-        if (strcmp(name, "Ov") == 0) {
+    } else if (strcmp(name, "Ov") == 0) {  // Ov - Override Values
       info_display_handle.ofeed = atoi(argv[0]);
       info_display_handle.orapids = atoi(argv[1]);
       info_display_handle.ospeed = atoi(argv[2]);
-    } else
-        // A - Accessory State
-        if (strcmp(name, "A") == 0) {
+    } else if (strcmp(name, "A") == 0) {  // A - Accessory State
       info_display_handle.spindle = SPINDLE_OFF;
       info_display_handle.flood = false;
       info_display_handle.mist = false;
