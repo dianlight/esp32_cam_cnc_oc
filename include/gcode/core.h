@@ -49,9 +49,20 @@ class GCodeFactory {
     va_list args;
     va_start(args, name);
     printf("%s\r", command->compositeCommand(args).c_str());
+    va_end(args);
+  }
+
+  static void sendCommandAndWait(std::string name, ...) {
+    GCodeCommand *command = line_types[name].command;
+    if (command == nullptr) {
+      command = line_types[name].command = new GCodeCommand(name.c_str());
+    }
+    va_list args;
+    va_start(args, name);
+    printf("%s\r", command->compositeCommand(args).c_str());
+    va_end(args);
     wait_ack = true;
     while (!wait_ack) vTaskDelay(100 / portTICK_PERIOD_MS);
-    va_end(args);
   }
 
   static void registerGCodeResponseParser(std::string name,
@@ -66,7 +77,7 @@ class GCodeFactory {
   static void unregisterGCode(std::string name) { line_types.erase(name); }
 
   static bool wait_ack;
-  
+
  private:
   static std::map<std::string, gcode_spec_t> line_types;
 };
