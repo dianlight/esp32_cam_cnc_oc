@@ -7,7 +7,9 @@
  * @license This file is distributed under the MIT License. See LICENSE.TXT for
  *details.
  *
- * @brief This header file defines the a status message response.
+ * @brief This header file defines the a state $G message command and response.
+ * 
+ * [GC:] : Indicates a queried $G g-code state message.
  *
  * @author lucio.tarantino@gmail.com (Lucio Tarantino).
  *
@@ -25,27 +27,27 @@
 
 namespace gcode {
 
-class StatusCommand : public GCodeCommand {
+class StateCommand : public GCodeCommand {
  public:
-  StatusCommand() : GCodeCommand("?") {}
+  StatusCommand() : GCodeCommand("$G") {}
 }
 
-class StatusParser : public GCodeParser {
+class StateParser : public GCodeParser {
  public:
-  StatusParser() : GCodeParser("?") {}
+  StatusParser() : GCodeParser("$G") {}
   //  ~StatusParser() {}
 
   bool isLineParsable(char *str) {
-    if (str[0] == '<' && str[sizeof(str) - 2] == '>')
+    if (strstr(str, "[GC:") == str && str[sizeof(str) - 2] == ']')
       return true;
     else
       return false;
   }
 
-  GCodeResponseData *make(char *str) { return new Status(str); }
+  GCodeResponseData *make(char *str) { return new State(str); }
 };
 
-class Status : public GCodeResponseData {
+class State : public GCodeResponseData {
  public:
   typedef struct {
     enum {

@@ -17,3 +17,15 @@
 #include "gcode/core.h"
 #include "gcode/ack.h"
 #include "gcode/grbl/status.h"
+#include "gcode/grbl/welcome.h"
+#include "gcode/grbl/alarm.h"
+#include "gcode/grbl/info.h"
+#include "gcode/grbl/message.h"
+#include "gcode/grbl/sharp.h"
+#include "gcode/grbl/state.h"
+#include "gcode/grbl/startup.h"
+
+
+
+
+
