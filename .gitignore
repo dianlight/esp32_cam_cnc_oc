@@ -6,3 +6,4 @@
 sdkconfig.old
 .vscode/settings.json
 scripts/__pycache__
+.DS_Store
