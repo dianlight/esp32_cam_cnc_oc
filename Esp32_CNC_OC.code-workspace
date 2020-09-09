@@ -1,12 +1,12 @@
 {
     "folders": [
-		{
-			"path": "../../.."
-		},
-		{
-			"path": "../../../a8i2cGateway"
-		}
-	],
+        {
+            "path": "."
+        },
+        {
+            "path": "a8i2cGateway"
+        }
+    ],
     "settings": {
         "files.associations": {
             "*.ipp": "cpp",
