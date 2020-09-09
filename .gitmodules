@@ -8,3 +8,4 @@
 [submodule "a8i2cGateway"]
 	path = a8i2cGateway
 	url = git@github.com:dianlight/a8i2cGateway.git
+	branch = next
