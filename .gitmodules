@@ -5,3 +5,6 @@
 [submodule "components/u8g2"]
 	path = components/u8g2
 	url = https://github.com/olikraus/u8g2.git
+[submodule "a8i2cGateway"]
+	path = a8i2cGateway
+	url = git@github.com:dianlight/a8i2cGateway.git

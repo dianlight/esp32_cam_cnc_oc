@@ -12,7 +12,7 @@
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_event.h"
-#include "esp_event_loop.h"
+//#include "esp_event_loop.h"
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #include "esp_log.h"
 #include "esp_ota_ops.h"

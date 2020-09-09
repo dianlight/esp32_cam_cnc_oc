@@ -1,0 +1,85 @@
+{
+    "folders": [
+		{
+			"path": "../../.."
+		},
+		{
+			"path": "../../../a8i2cGateway"
+		}
+	],
+    "settings": {
+        "files.associations": {
+            "*.ipp": "cpp",
+            "*.tcc": "cpp",
+            "cstdio": "cpp",
+            "string_view": "cpp",
+            "functional": "cpp",
+            "codecvt": "cpp",
+            "condition_variable": "cpp",
+            "cstddef": "cpp",
+            "list": "cpp",
+            "string": "cpp",
+            "optional": "cpp",
+            "future": "cpp",
+            "limits": "cpp",
+            "memory": "cpp",
+            "new": "cpp",
+            "type_traits": "cpp",
+            "array": "cpp",
+            "atomic": "cpp",
+            "cctype": "cpp",
+            "chrono": "cpp",
+            "clocale": "cpp",
+            "cmath": "cpp",
+            "complex": "cpp",
+            "csignal": "cpp",
+            "cstdarg": "cpp",
+            "cstdint": "cpp",
+            "cstdlib": "cpp",
+            "cstring": "cpp",
+            "ctime": "cpp",
+            "cwchar": "cpp",
+            "cwctype": "cpp",
+            "deque": "cpp",
+            "unordered_map": "cpp",
+            "vector": "cpp",
+            "exception": "cpp",
+            "algorithm": "cpp",
+            "iterator": "cpp",
+            "map": "cpp",
+            "memory_resource": "cpp",
+            "numeric": "cpp",
+            "random": "cpp",
+            "ratio": "cpp",
+            "set": "cpp",
+            "system_error": "cpp",
+            "tuple": "cpp",
+            "utility": "cpp",
+            "fstream": "cpp",
+            "initializer_list": "cpp",
+            "iosfwd": "cpp",
+            "istream": "cpp",
+            "mutex": "cpp",
+            "ostream": "cpp",
+            "sstream": "cpp",
+            "stdexcept": "cpp",
+            "streambuf": "cpp",
+            "thread": "cpp",
+            "cinttypes": "cpp",
+            "typeinfo": "cpp"
+        },
+        "cpplint.extensions": [
+
+            "cpp",
+            "h++",
+            "cuh",
+            "c++",
+            "cu",
+            "hxx",
+            "hpp",
+            "cc",
+            "cxx",
+            "h"
+        ]
+    }
+}

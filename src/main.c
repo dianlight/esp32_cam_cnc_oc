@@ -25,6 +25,8 @@
 #include <i2cdev.h>
 #include <mdns.h>
 
+#include <a8i2cGateway.h>
+
 #include "grbl_friendly_log.h"
 
 #include "infoDisplay.h"
@@ -129,8 +131,8 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         /* Start the web server */
         if (*server == NULL)
         {
-            ESP_LOGI(TAG, "Starting server: '%s:80'",
-                     ip4addr_ntoa(&ip_data->ip_info.ip));
+            ESP_LOGI(TAG, "Starting server: '%d.%d.%d.%d:80'",
+                     IP2STR(&ip_data->ip_info.ip));
 
             *server = start_webserver();
         }

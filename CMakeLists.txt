@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16.0)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 list(APPEND EXTRA_COMPONENT_DIRS esp-idf-lib/components)
+list(APPEND EXTRA_COMPONENT_DIRS a8i2cGateway/clib/esp-idf)
 list(APPEND EXCLUDE_COMPONENTS bh1750 bme680 bmp180 fht ds18x20 ds1302 ds1307 encoder hd44780_gpio hd44780_i2c hd44780_i2c_scroll)
 list(APPEND EXCLUDE_COMPONENTS hmc5883l hx711 ina219 ina3221 lm75 max7219_7seg max7219_8x8)
 project(Esp32_Cam_CNC_OC)

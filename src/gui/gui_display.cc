@@ -35,7 +35,7 @@ GuiDisplay::GuiDisplay(gpio_num_t sda, gpio_num_t scl) : sda(sda), scl(scl) {
   i2c_dev_t device;
   memset(&device, 0, sizeof(i2c_dev_t));
 
-  device.port = i2c_port_t::I2C_NUM_0;
+  device.port = I2C_NUM_0;
   device.addr = 0x78;
   device.cfg.sda_io_num = sda;
   device.cfg.scl_io_num = scl;
