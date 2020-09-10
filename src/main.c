@@ -225,6 +225,7 @@ void app_main(void)
     ssdtest();
     printf("(Free heap size: %d)\n", (int)xPortGetFreeHeapSize());
 
+    ESP_ERROR_CHECK(a8i2cGw_init(SDA_GPIO,SCL_GPIO));
     ESP_ERROR_CHECK(initHID());
 
     infoDisplay();
